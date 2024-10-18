@@ -524,17 +524,17 @@ void saveEvents_2p2h_variedEnergy(double Enu_low, double Enu_high, std::string n
     std::complex<double> udel(0.,0.);
 
     int i = 0;
-    int nr_events=nr*3000000; //number of produced events
+    int nr_events=nr*100000; //number of produced events
     int counter = 1;
     double Ep, phi_p, kk, phi_pi, thetapi, Epi, qq, w, theta_lepton,Eout_lepton ,Ep2,r=0;
     bool result_zero = false;
     bool result_zero_lind = false;
     double Ein =0;
 
-//    if (Emin<lepton_mass+nuc->Q_2p2h) {
-//        std::cerr<<"Initial neutrino energy too small! "<<Emin<<"<"<<lepton_mass+nuc->Q_2p2h<<"\n";
-//        return;
-//    }
+    if (Enu_low<lepton_mass+nuc->Q_2p2h) {
+        std::cerr<<"Initial neutrino energy too small! "<<Enu_low<<"<"<<lepton_mass+nuc->Q_2p2h<<"\n";
+        Enu_low = lepton_mass+nuc->Q_2p2h;
+    }
 
     double total_xsec=0;
 
@@ -549,10 +549,10 @@ void saveEvents_2p2h_variedEnergy(double Enu_low, double Enu_high, std::string n
         }
 
 
-        if (Ein<lepton_mass+nuc->Q_2p2h) {
-            std::cerr<<"Initial neutrino energy too small! "<<Ein<<"<"<<lepton_mass+nuc->Q_2p2h<<"\n";
-//            continue;
-        }
+//        if (Ein<lepton_mass+nuc->Q_2p2h) {
+//            std::cerr<<"Initial neutrino energy too small! "<<Ein<<"<"<<lepton_mass+nuc->Q_2p2h<<"\n";
+//            Enu_low = lepton_mass+nuc->Q_2p2h;
+//        }
 
         e= new event;
 
@@ -631,7 +631,7 @@ void saveEvents_2p2h_variedEnergy(double Enu_low, double Enu_high, std::string n
         e->E_nuc =Ep;
         e->phi_nuc = phi_p;
         e->E_nuc2 = Ep2;
-
+        e->energy_neutrino = Ein;
 
         if (!result_zero && !result_zero_lind) event_2p2h_rho_gaussian(r, Ein, theta_lepton, Ep2, Ep, phi_p, kk, phi_pi, thetapi, Epi, w, qq, rho, 1, Emax_2-Emin_2, e, nuc,corr_in_medium);
         else {
@@ -657,6 +657,11 @@ void saveEvents_2p2h_variedEnergy(double Enu_low, double Enu_high, std::string n
         if ((e->weight_pp+e->weight_np+e->weight_pn)!=0) {
             tf->Fill(); //we do not include 0
 
+            if (i*10./nr_events == counter) {std::cerr<<"* "; counter++;}
+            i++;
+
+            total_xsec+=(e->weight_pp+e->weight_np+e->weight_pn);
+
 
         }
 
@@ -664,10 +669,10 @@ void saveEvents_2p2h_variedEnergy(double Enu_low, double Enu_high, std::string n
         result_zero=false;
         result_zero_lind=false;
 
-        if (i*10./nr_events == counter) {std::cerr<<"* "; counter++;}
-        i++;
-
-        total_xsec+=(e->weight_pp+e->weight_np+e->weight_pn);
+//        if (i*10./nr_events == counter) {std::cerr<<"* "; counter++;}
+//        i++;
+//
+//        total_xsec+=(e->weight_pp+e->weight_np+e->weight_pn);
 
 
     }

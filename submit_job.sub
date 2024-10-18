@@ -1,0 +1,24 @@
+# HTCondor submission file for lxplus
+
+# Executable
+executable = /path/to/your/executable/program
+
+# Arguments to pass to your program
+# Example: <mode_2p2h> <mode_el> <ReDelta> <emin> <emax> <nr_d> <Global> <oxygen> <efixed> <nr> <en_low> <en_high>
+arguments = 0 0 0 0 2000 200 0 0 0 0 2000 100
+
+# Standard output and error logs
+output = output_$(ClusterId).log
+error = error_$(ClusterId).log
+log = condor_$(ClusterId).log
+
+# Request resources
+request_cpus = 1                # Number of CPU cores
+request_memory = 10GB            # Amount of memory
+
+# Use the appropriate software environment
+# Typically, you can use LCG releases in lxplus for specific environments
++JobFlavour = "tomorrow"          # Job duration (e.g., workday is 8 hours)
+
+# Send the job
+queue

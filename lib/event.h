@@ -29,7 +29,7 @@ public:
 	double weight_anti_nn;
 	double weight_anti_pn;
 	double weight_anti_np;
-
+    double energy_neutrino;
 
  
     
