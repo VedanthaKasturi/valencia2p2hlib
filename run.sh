@@ -1,4 +1,4 @@
-#Usage: ./program <mode_2p2h> <mode_el> <ReDelta> <emin> <emax> <nr_d> <Global> <oxygen> <efixed> <en_low> <en_high> <nr>
+#Usage: ./program <mode_2p2h> <mode_el> <ReDelta> <emin> <emax> <nr_d> <Global> <oxygen> <efixed> <en_low> <en_high> <ll>
 
 #mode_2p2h: 0 - save 2p2h events, 1 - save 3p3h events, 2 - total 2p2h, 3 - total 3p3h
 #mode_el: 0 - CC, 1 - CCanti
@@ -13,4 +13,4 @@
 #en_low: low energy of incoming neutrino
 #en_high: high energy of incoming neutrino
 
-./build/program 0 0 0 0 2000 200 0 0 0 0 2000 100
+./build/program 0 0 0 0 2000 100 0 0 1 650 650 1

@@ -123,7 +123,9 @@ void hadron_2p2h_part1_Epi_thetapi_phipi_kpi_phip_Ep_isospin(double Ep, double p
 	
 	channel = 0; //we calculate everything with CG coefficients = 1
 	D4V<DM> delta_cur_vec, delta_cur_ax, delta_cur_cross_vec, delta_cur_cross_ax, nucl_cur_vec, nucl_cur_ax,nucl_cur_s,  nucl_cur_cross_vec, nucl_cur_cross_ax, nucl_cur_cross_s, vector_contact, axial_contact, pion_pole_cur, pion_in_flight_cur;
-	
+	/**
+	 * Delta current in medium and crossed. This part is the one with resonance
+	 */
     delta_current_medium(rho, p_med, q, kPi, pslash_med, qslash, delta_cur_vec, delta_cur_ax);
 	delta_current_crossed_medium(rho, p_med, q, kPi, pslash_med, qslash, delta_cur_cross_vec, delta_cur_cross_ax);
 	
@@ -177,10 +179,10 @@ void hadron_2p2h_part1_Epi_thetapi_phipi_kpi_phip_Ep_isospin(double Ep, double p
 	
 	for (int ch= min_ch; ch<max_ch; ch++) {
 		
-		j1 =(CGDP_v[ch]/CGDP_v[0])*delta_cur_vec + (CGDP_a[ch]/CGDP_a[0])*delta_cur_ax +(CGDPC_v[ch]/CGDPC_v[0])*delta_cur_cross_vec + (CGDPC_a[ch]/CGDPC_a[0])*delta_cur_cross_ax;
+		j1 =(CGDP_v[ch]/CGDP_v[0])*delta_cur_vec + (CGDP_a[ch]/CGDP_a[0])*delta_cur_ax +(CGDPC_v[ch]/CGDPC_v[0])*delta_cur_cross_vec + (CGDPC_a[ch]/CGDPC_a[0])*delta_cur_cross_ax; // Delta added
 		if (p_inter_mom>k_fermi)
             j1+=(CGNP_v[ch]/CGNP_v[0])*nucl_cur_vec + (CGNP_a[ch]/CGNP_a[0])*nucl_cur_ax +(CGNPC_v[ch]/CGNPC_v[0])*nucl_cur_cross_vec+(CGNPC_a[ch]/CGNPC_a[0])*nucl_cur_cross_ax+(CGNPC_s[ch]/CGNPC_s[0])*nucl_cur_cross_s+(CGNP_s[ch]/CGNP_s[0])*nucl_cur_s;
-		
+		// Nucleon part added
 		j1*=eff_long;
         
         
@@ -198,7 +200,7 @@ void hadron_2p2h_part1_Epi_thetapi_phipi_kpi_phip_Ep_isospin(double Ep, double p
 		j2 &=gamma0;
 		j2 *=gamma0;
 		
-		D4T<DM> Amunu(j1,j2);
+		D4T<DM> Amunu(j1,j2); // Here you construct the full Amunu
 	
 		 pf1=(CGPF_v[ch]/CGPF_v[0])*pion_in_flight_cur;
 		 pf2=pf1;

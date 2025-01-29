@@ -18,21 +18,26 @@ void saveEvents_2p2h(double Ein, std::string name, int nr, nucleus_str* nuc) {
 	tf->Branch ("e", "event", &e);
 	delete e;
 	int aaaa=0;
-	
+	/**
+	 * In the case of global Fermi gas, you have the same density for all the nucleus and hence the same Fermi momentum
+	 * The two lines below only apply in the GFG case. Otherwise, we regenerate them every event in the LFG case
+	 */
 	double rho = getRho(0, nuc,true)/fermi3+getRho(0, nuc,false)/fermi3; //for GFG this will be constant
 	double k_fermi = pow(3*M_PI*M_PI*rho/2., 1./3.);
 	
-	std::complex<double> cunuc(0.,0.);
-	std::complex<double> udel(0.,0.);
+	std::complex<double> cunuc(0.,0.);  // NUCLEAR?
+	std::complex<double> udel(0.,0.);  // DELTA?
 	
 	int i = 0;
-	int nr_events=nr*3000000; //number of produced events
+	int nr_events=nr*10000; //number of produced events
 	int counter = 1;
 	double Ep, phi_p, kk, phi_pi, thetapi, Epi, qq, w, theta_lepton,Eout_lepton ,Ep2,r=0;
 	bool result_zero = false;
-	bool result_zero_lind = false;
+	bool result_zero_lind = false; //if the Lindhard function is 0 ?
 	
-	
+	/**
+	 * We impose a cut for the initial neutrino energy. You need to have enough energy to produce the lepton mass + energy to remove the nucleus from the fermi sea
+	 */
 	if (Ein<lepton_mass+nuc->Q_2p2h) {
 		std::cerr<<"Initial neutrino energy too small! "<<Ein<<"<"<<lepton_mass+nuc->Q_2p2h<<"\n";
 		return;
@@ -43,42 +48,59 @@ void saveEvents_2p2h(double Ein, std::string name, int nr, nucleus_str* nuc) {
 	//here we produce events
 	while (i<nr_events) {
 		
-		e= new event;
+		e= new event; // The event we will save the info in a tree
 		
 		if (!Global) {
-			r = nuc->rmax*frandom(); //generate a point in nucleus
-			rho = getRho(r, nuc,true)/fermi3+getRho(r, nuc,false)/fermi3;
-			k_fermi = pow(3*M_PI*M_PI*rho/2., 1./3.);
+            /**
+             * This is the Radial dependency of LFG. This is our 1st variable to integrate over
+             */
+			r = nuc->rmax*frandom(); //generate a point in nucleus with radius r
+			rho = getRho(r, nuc,true)/fermi3+getRho(r, nuc,false)/fermi3; //get the density at this point as the sum of the proton and neutron densities
+			k_fermi = pow(3*M_PI*M_PI*rho/2., 1./3.); //get the Fermi momentum at this point
 		}
 		
-        double corr_in_medium = nuc->Q_2p2h;
-        
+        double corr_in_medium = nuc->Q_2p2h; //energy needed to remove the nucleus from the Fermi sea
+        /**
+         * We generate the energy of the outgoing lepton. The energy will exist between two limits: lepton mass and the energy transfered to the nucleon by the W boson
+         * This is our 2nd variable to integrate over
+         */
         Eout_lepton = lepton_mass+corr_in_medium+(Ein-lepton_mass-corr_in_medium)*frandom();
 
         w = Ein-Eout_lepton-corr_in_medium;
-        
+        /**
+         * We generate the angle of the outgoing lepton. This is our 3rd variable to integrate over
+         */
 		theta_lepton = M_PI*frandom();  //generate the outgoing lepton angle
 		double kout = sqrt(Eout_lepton*Eout_lepton-lepton_mass*lepton_mass);
 		qq = sqrt(Ein*Ein + pow(kout,2) - 2*kout*Ein*cos(theta_lepton));
 		
 		if (qq<w) result_zero=true;
 		//if (qq>1.2*GeV) result_zero=true; //we impose a cut for the transfered momentum
-		
+		/**
+		 * We generate the phi angle of the 1st nucleon. This is our 4th variable to integrate over. This Phi is with respect to the q-pi vector
+		 */
 		phi_p = 2*M_PI*frandom(); //generate the phi angle of the 1st initial nucleons
-		//generate the 4-momentum of "pion" :
+		/**
+		 * Generate the Four momentum of the pion. This is our 5th, 6th, 7th and 8th variables to integrate over
+		 */
 		kk = (qq+3*k_fermi)*frandom();
 		phi_pi = 2*M_PI*frandom();
 		thetapi=M_PI*frandom();
 		Epi = w*frandom();
 		
-		
+		/**
+		 * This is the Lindhard function. This calculates the screening of the pion in the nucleus?
+		 */
 		ulind(Epi/mpi, kk/mpi, k_fermi/mpi,cunuc, udel);
 		cunuc*=pow(mpi,2);
 		
 		if (std::abs(cunuc.imag())<pow(10,-20)) result_zero=true; //if the pion cannot produce 1p1h (second bubble)
 		
 		if (!(qq<w) && (qq>1.2*GeV) && !(std::abs(cunuc.imag())<pow(10,-20))) aaaa++;
-		
+
+        /**
+         * We have to now calculate the kinematic variables to apply some cuts on what events are processed. We only calculate valid kimematic events to save time
+         */
 		double cosi=cos(thetapi);
 		double kPi1=kk*sqrt(1-cosi*cosi)*cos(phi_pi);
 		double kPi2 = kk*sqrt(1-cosi*cosi)*sin(phi_pi);
@@ -98,15 +120,26 @@ void saveEvents_2p2h(double Ein, std::string name, int nr, nucleus_str* nuc) {
         double Emax_2 = sqrt(M*M+k_fermi*k_fermi);
         double pom_2 = std::max(M,Emax_2-Epi);
         double Emin_2 = std::max(pom_2, 0.5*(-(Epi)+kk*sqrt(1.-4.*M*M/(Epi*Epi-kk*kk))));
+
+        /**
+         * We generate the energy of the 2nd nucleon. This is our 9th variable to integrate over
+         */
         
         Ep2 =  Emin_2+(Emax_2-Emin_2)*frandom(); //generate energy of the 2nd nucleon
         if (Emin_2>Emax_2) result_zero = true;
 
+        /**
+         * We generate the energy of the 1st nucleon. This is our 10th variable to integrate over
+         */
 		Ep =Emin+(Emax-Emin)*frandom(); //generate energy of the 1st nucleon
 		
 
         if (Emin>Emax) result_zero= true;
         if (Emin_2>Emax_2) result_zero = true;
+
+        /**
+         * This is the ROOT tree in which we save all the variables. Some are added here while the rest are done inside the event_2p2h_rho_gaussian function
+         */
 		
 		e->q0 = Ein-Eout_lepton;
         e->qz = qq;
@@ -120,6 +153,15 @@ void saveEvents_2p2h(double Ein, std::string name, int nr, nucleus_str* nuc) {
 		e->E_nuc =Ep;
 		e->phi_nuc = phi_p;
 		e->E_nuc2 = Ep2;
+        e->fermi_momentum = k_fermi;
+        e->lindhard_Value = lindhard;
+        e->isCC = (CH_2p2h == 0);
+        e->energy_neutrino = Ein;
+
+        /**
+         * This is the main function that calculates the cross section of the 2p2h event. It will also calculate the weights of the different channels. This contains 3 diagram classes
+         * Some info is added to the tree that has additonal info on what the event is internally, What diagram and so on. this is needed to be able to understand the topology of the event
+         */
 
 		
 		if (!result_zero && !result_zero_lind) event_2p2h_rho_gaussian(r, Ein, theta_lepton, Ep2, Ep, phi_p, kk, phi_pi, thetapi, Epi, w, qq, rho, 1, Emax_2-Emin_2, e, nuc,corr_in_medium);
@@ -131,9 +173,14 @@ void saveEvents_2p2h(double Ein, std::string name, int nr, nucleus_str* nuc) {
 			e->weight_anti_pn=0;
 			e->weight_anti_np=0;
 		}
-		
+
+        /**
+         * Calculate the integral volume of this event. This will contain the Jacobian of the transformation of variables and the range of integration
+         */
 		double coeff = w*sin(theta_lepton)*(Emax-Emin)*(qq+3*k_fermi)*(Ein-lepton_mass-corr_in_medium)*Pi*2*Pi*2*Pi*Pi;
-		
+//                | E_pi|     theta_mu    |    EN1    |  P_pi        |           E_mu                 |theta_pi| phiN1 | Phi_pi | theta_mu(its pi*sin(theta_lepton))
+
+
 		if (!Global) coeff*=nuc->rmax;
 		
 		
@@ -188,7 +235,13 @@ void event_2p2h_rho_gaussian(double r, double Ein, double theta_lepton, double E
 	D4V<double> q(w, 0,0,qq); //boson W
 	D4V<DM> axial_nuc, vector_nuc, scalar_nuc;
 	Wnn(q, vector_nuc,axial_nuc,scalar_nuc);
-	
+
+    /**
+     * This is the hadron tensor being defined here.
+     * The A00, A11, A12, A03, A33 are the 5 components of the first diagram class
+     * The B00, B11, B12, B03, B33 are the 5 components of the second diagram class
+     * The C00, C11, C12, C03, C33 are the 5 components of the third diagram class
+     */
 	std::complex<double> A00[3], B00[3], C00[3];
 	std::complex<double> A11[3], B11[3], C11[3];
 	std::complex<double> A12[3], B12[3], C12[3];
@@ -201,9 +254,17 @@ void event_2p2h_rho_gaussian(double r, double Ein, double theta_lepton, double E
 		
 	}
 	//w-=nuc->Q;
-	
+	/**
+	 * Rho Transversal component
+	 */
     hadron_2p2h_rho_Epi_thetapi_phipi_kpi_phip_Ep_isospin(Ep, phi_p, kk, phi_pi, thetapi, Epi, qq, w, rho, axial_nuc, vector_nuc, scalar_nuc, A00, A11, A12, A03, A33);
+    /**
+     * Pion Longitudinal component
+     */
     hadron_2p2h_part1_Epi_thetapi_phipi_kpi_phip_Ep_isospin(Ep, phi_p, kk, phi_pi, thetapi, Epi, qq, w, rho, axial_nuc, vector_nuc, scalar_nuc, B00, B11, B12, B03, B33);
+    /**
+     * This is the Interference term. Its small but has the influence on negative weights. This needs to be studied in particular
+     */
     hadron_2p2h_part2_Epi_thetapi_phipi_kpi_E1_E2_isospin(Ep2, Ep, phi_p, kk, phi_pi, thetapi, Epi, qq, w, rho, axial_nuc, vector_nuc, scalar_nuc, C00, C11, C12, C03, C33);
     for (int i=0; i<3; i++) {
         C00[i]*=E_range/(2*M_PI); //because in this case we don't integrate over phi_nuc but instead over Ep_2
@@ -216,6 +277,32 @@ void event_2p2h_rho_gaussian(double r, double Ein, double theta_lepton, double E
 	if (A00[0]!=A00[0] || A11[0]!=A11[0] || A12[0]!=A12[0] || A03[0]!=A03[0] || A33[0]!=A33[0]) {
 		std::cerr<<"ERROR "<<Ep<<" phi="<<phi_p<<" kpi="<<kk<<" phipi="<<phi_pi<<" thpi="<<thetapi<<" Epi="<<Epi<<" q="<<qq<<" w="<<w<<" rho="<<rho<<" "<<A00[0]<<" "<<A11[0]<<" "<<A12[0]<<" "<<A03[0]<<" "<<A33[0]<<"\n";
 	}
+
+    for(int ite=0; ite<3; ite++){
+        e->rho_transversal_00 [ite] = A00[ite];
+        e->rho_transversal_11 [ite] = A11[ite];
+        e->rho_transversal_12 [ite] = A12[ite];
+        e->rho_transversal_03 [ite] = A03[ite];
+        e->rho_transversal_33 [ite] = A33[ite];
+
+        e->pi_longitudinal_00 [ite] = B00[ite];
+        e->pi_longitudinal_11 [ite] = B11[ite];
+        e->pi_longitudinal_12 [ite] = B12[ite];
+        e->pi_longitudinal_03 [ite] = B03[ite];
+        e->pi_longitudinal_33 [ite] = B33[ite];
+
+        e->both_interference_00 [ite] = C00[ite];
+        e->both_interference_11 [ite] = C11[ite];
+        e->both_interference_12 [ite] = C12[ite];
+        e->both_interference_03 [ite] = C03[ite];
+        e->both_interference_33 [ite] = C33[ite];
+    }
+
+
+
+    /**
+     * We add the 3 diagram classes together
+     */
     
     
 	for (int i=0; i<3; i++) {
@@ -237,6 +324,15 @@ void event_2p2h_rho_gaussian(double r, double Ein, double theta_lepton, double E
 
 	
 	for (int i=0; i<3; i++) {
+
+        /**
+         * These are the Coefficients of the hadron tensor.
+         * W1 -> Transverse Response
+         * W2 -> Longitudinal Response + Transverse Response
+         * W3 -> Parity violating Response
+         * W4 -> Interference term (higher order contribution)
+         * W5 -> Axial Vector Response
+         */
 		
 		double W1= A11[i].real()/2.;
 		double W2 =0.5*(A00[i].real()+A11[i].real()+ w*w/qq/qq*(A33[i].real()-A11[i].real())-2*w/qq*A03[i].real() );
@@ -244,7 +340,11 @@ void event_2p2h_rho_gaussian(double r, double Ein, double theta_lepton, double E
 		double W4 =(A33[i].real()-A11[i].real())/2./qq/qq;
 		double W5 =(A03[i].real()-w/qq*(A33[i].real()-A11[i].real()))/qq;
 		
-		
+		e->transverse_response = W1;
+        e->mixed_response = W2;
+        e->parity_violating_response = W3;
+        e->interference_response = W4;
+        e->axial_vector_response = W5;
 		
 		double as = lepton_mass*lepton_mass/eout/(eout+kout);
 		

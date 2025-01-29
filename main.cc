@@ -46,6 +46,23 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+    // Print out the options selected
+
+    std::cout<<"Selected options:\n";
+    std::cout<<"mode_2p2h: "<<argv[1]<<"\n";
+    std::cout<<"mode_el: "<<argv[2]<<"\n";
+    std::cout<<"ReDelta: "<<argv[3]<<"\n";
+    std::cout<<"emin: "<<argv[4]<<"\n";
+    std::cout<<"emax: "<<argv[5]<<"\n";
+    std::cout<<"nr_d: "<<argv[6]<<"\n";
+    std::cout<<"Global: "<<argv[7]<<"\n";
+    std::cout<<"oxygen: "<<argv[8]<<"\n";
+    std::cout<<"efixed: "<<argv[9]<<"\n";
+    std::cout<<"en_low: "<<argv[10]<<"\n";
+    std::cout<<"en_high: "<<argv[11]<<"\n";
+    std::cout<<"nr: "<<argv[12]<<"\n";
+
+
     M = 940*MeV;
     mpi = 139.57*MeV;
 
@@ -280,7 +297,7 @@ void saveEvents_2p2h(bool Global, int oxygen, bool efixed, double en_low, double
     frandom_init(0);
     nucleus_str nuc;
     std::string gfg_;
-    CH_2p2h=CC;
+//    CH_2p2h=CC;
     FERMI=true;
     NR_PART=12;
     Global = false;

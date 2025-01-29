@@ -30,6 +30,30 @@ public:
 	double weight_anti_pn;
 	double weight_anti_np;
     double energy_neutrino;
+    double fermi_momentum;
+    double lindhard_Value;
+    double transverse_response;
+    double mixed_response;
+    double parity_violating_response;
+    double interference_response;
+    double axial_vector_response;
+    std::complex<double> rho_transversal_00[3];
+    std::complex<double> rho_transversal_11[3];
+    std::complex<double> rho_transversal_12[3];
+    std::complex<double> rho_transversal_03[3];
+    std::complex<double> rho_transversal_33[3];
+    std::complex<double> pi_longitudinal_00[3];
+    std::complex<double> pi_longitudinal_11[3];
+    std::complex<double> pi_longitudinal_12[3];
+    std::complex<double> pi_longitudinal_03[3];
+    std::complex<double> pi_longitudinal_33[3];
+    std::complex<double> both_interference_00[3];
+    std::complex<double> both_interference_11[3];
+    std::complex<double> both_interference_12[3];
+    std::complex<double> both_interference_03[3];
+    std::complex<double> both_interference_33[3];
+    bool isCC;
+
 
  
     

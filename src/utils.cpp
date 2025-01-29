@@ -17,7 +17,7 @@ double Rho_GFG(double r, nucleus_str *N, bool nucleon){
     
 }
 
-double Rho_F(double r, nucleus_str *N, bool nucleon){
+double Rho_F(double r, nucleus_str *N, bool nucleon){ // Proton if true neutron if false
     if (r>8*(N->r_n)) return 0;
     if (nucleon) {
         double r_ch =N->r_p;
