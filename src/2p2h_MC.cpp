@@ -192,7 +192,7 @@ void saveEvents_2p2h(double Ein, std::string name, int nr, nucleus_str* nuc) {
         
         if ((e->weight_pp+e->weight_np+e->weight_pn)!=0) {
             tf->Fill(); //we do not include 0
-            
+            i++;
 
         }
 		
@@ -201,7 +201,7 @@ void saveEvents_2p2h(double Ein, std::string name, int nr, nucleus_str* nuc) {
 		result_zero_lind=false;
 		
 		if (i*10./nr_events == counter) {std::cerr<<"* "; counter++;}
-		i++;
+
 		
 		total_xsec+=(e->weight_pp+e->weight_np+e->weight_pn);
 
