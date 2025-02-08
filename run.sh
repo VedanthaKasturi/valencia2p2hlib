@@ -12,5 +12,6 @@
 #nr: number of points to generate
 #en_low: low energy of incoming neutrino
 #en_high: high energy of incoming neutrino
+#ll: Number of events to generate x 10000
 
-./build/program 0 0 0 0 2000 100 0 0 1 650 650 1
+./build/program 0 0 0 0 2000 100 0 0 1 650 650 100

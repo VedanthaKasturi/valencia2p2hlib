@@ -181,7 +181,18 @@ void saveEvents_2p2h(double Ein, std::string name, int nr, nucleus_str* nuc) {
 //                | E_pi|     theta_mu    |    EN1    |  P_pi        |           E_mu                 |theta_pi| phiN1 | Phi_pi | theta_mu(its pi*sin(theta_lepton))
 
 
-		if (!Global) coeff*=nuc->rmax;
+		if (!Global) coeff*=nuc->rmax; //for LFG we integrate over r
+
+        e->int_vol_E_pi = w;
+        e->int_vol_theta_lepton = sin(theta_lepton)*Pi;
+        e->int_vol_E_nuc = (Emax-Emin);
+        e->int_vol_p_pi = (qq+3*k_fermi);
+        e->int_vol_phi_nuc = 2*Pi;
+        e->int_vol_E_nuc2 = Emax_2-Emin_2;
+        e->int_vol_E_lepton = Ein-lepton_mass-corr_in_medium;
+        e->int_vol_theta_pi = Pi;
+        e->int_vol_phi_pi = 2*Pi;
+        e->int_vol_r = nuc->rmax;
 		
 		
 		e->weight_pp *=coeff ;//range of integration
@@ -278,25 +289,25 @@ void event_2p2h_rho_gaussian(double r, double Ein, double theta_lepton, double E
 		std::cerr<<"ERROR "<<Ep<<" phi="<<phi_p<<" kpi="<<kk<<" phipi="<<phi_pi<<" thpi="<<thetapi<<" Epi="<<Epi<<" q="<<qq<<" w="<<w<<" rho="<<rho<<" "<<A00[0]<<" "<<A11[0]<<" "<<A12[0]<<" "<<A03[0]<<" "<<A33[0]<<"\n";
 	}
 
-    for(int ite=0; ite<3; ite++){
-        e->rho_transversal_00 [ite] = A00[ite];
-        e->rho_transversal_11 [ite] = A11[ite];
-        e->rho_transversal_12 [ite] = A12[ite];
-        e->rho_transversal_03 [ite] = A03[ite];
-        e->rho_transversal_33 [ite] = A33[ite];
-
-        e->pi_longitudinal_00 [ite] = B00[ite];
-        e->pi_longitudinal_11 [ite] = B11[ite];
-        e->pi_longitudinal_12 [ite] = B12[ite];
-        e->pi_longitudinal_03 [ite] = B03[ite];
-        e->pi_longitudinal_33 [ite] = B33[ite];
-
-        e->both_interference_00 [ite] = C00[ite];
-        e->both_interference_11 [ite] = C11[ite];
-        e->both_interference_12 [ite] = C12[ite];
-        e->both_interference_03 [ite] = C03[ite];
-        e->both_interference_33 [ite] = C33[ite];
-    }
+//    for(int ite=0; ite<3; ite++){
+//        e->rho_transversal_00 [ite] = A00[ite];
+//        e->rho_transversal_11 [ite] = A11[ite];
+//        e->rho_transversal_12 [ite] = A12[ite];
+//        e->rho_transversal_03 [ite] = A03[ite];
+//        e->rho_transversal_33 [ite] = A33[ite];
+//
+//        e->pi_longitudinal_00 [ite] = B00[ite];
+//        e->pi_longitudinal_11 [ite] = B11[ite];
+//        e->pi_longitudinal_12 [ite] = B12[ite];
+//        e->pi_longitudinal_03 [ite] = B03[ite];
+//        e->pi_longitudinal_33 [ite] = B33[ite];
+//
+//        e->both_interference_00 [ite] = C00[ite];
+//        e->both_interference_11 [ite] = C11[ite];
+//        e->both_interference_12 [ite] = C12[ite];
+//        e->both_interference_03 [ite] = C03[ite];
+//        e->both_interference_33 [ite] = C33[ite];
+//    }
 
 
 
