@@ -13,12 +13,12 @@ error = error_$(ClusterId).log
 log = condor_$(ClusterId).log
 
 # Request resources
-request_cpus = 1                # Number of CPU cores
-request_memory = 10GB            # Amount of memory
+request_cpus = 1
+request_memory = 10GB
 
 # Use the appropriate software environment
 # Typically, you can use LCG releases in lxplus for specific environments
-+JobFlavour = "tomorrow"          # Job duration (e.g., workday is 8 hours)
++JobFlavour = "tomorrow"
 
 # Send the job
 queue
