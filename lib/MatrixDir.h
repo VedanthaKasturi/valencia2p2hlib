@@ -540,7 +540,7 @@ public:
 //inactive! writing down the matrix contents
     void wrt();
 	//friend ostream& operator<<(ostream& os, const DM& mat);
-private:
+//private:
 
 	std::complex<double> matrix[4][4];
 };
