@@ -14,4 +14,8 @@
 #en_high: high energy of incoming neutrino
 #ll: Number of events to generate x 10000
 
-./build/program 0 0 0 0 2000 100 0 0 1 650 650 100
+cd build
+cmake ../
+make
+
+./program 0 0 0 0 2000 100 0 0 1 450 450 1000

@@ -75,7 +75,7 @@ void saveEvents_2p2h(double Ein, std::string name, int nr, nucleus_str* nuc) {
 		qq = sqrt(Ein*Ein + pow(kout,2) - 2*kout*Ein*cos(theta_lepton));
 		
 		if (qq<w) result_zero=true;
-		//if (qq>1.2*GeV) result_zero=true; //we impose a cut for the transfered momentum
+		if (qq>1.2*GeV) result_zero=true; //we impose a cut for the transfered momentum
 		/**
 		 * We generate the phi angle of the 1st nucleon. This is our 4th variable to integrate over. This Phi is with respect to the q-pi vector
 		 */
