@@ -28,6 +28,7 @@ set(SOURCES
         src/utils.cpp
         src/event.cpp
         src/event_3p3h.cpp
+        src/table_MC.cpp
 )
 
 # Generate ROOT dictionaries

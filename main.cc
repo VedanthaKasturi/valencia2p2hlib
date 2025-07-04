@@ -26,12 +26,12 @@ void total_2p2h(double Emin, double Emax, double nr_d, std::string name);
 void total_2p2h(double Emin, double Emax, double nr_d, bool Global, int oxygen, std::string suffix);
 void total_3p3h(double Emin, double Emax, double nr_d, std::string suffix);
 void total_3p3h(double Emin, double Emax, double nr_d, bool Global, int oxygen, std::string suffix);
-
+void generate_table_2p2h_MC(std::string suffix);
 
 int main(int argc, char *argv[]) {
     if (argc < 10) {
         std::cerr << "Usage: ./program <mode_2p2h> <mode_el> <ReDelta> <emin> <emax> <nr_d> <Global> <oxygen> <efixed> <en_low> <en_high> <nr>\n";
-        std::cerr << "mode_2p2h: 0 - save 2p2h events, 1 - save 3p3h events, 2 - total 2p2h, 3 - total 3p3h\n";
+        std::cerr << "mode_2p2h: 0 - save 2p2h events, 1 - save 3p3h events, 2 - total 2p2h, 3 - total 3p3h, 4 - Inclusive 2p2h, 5 - save hadronic tensor (MC method)\n";
         std::cerr << "mode_el: 0 - CC, 1 - CCanti\n";
         std::cerr << "ReDelta: 0 - 0 MeV, 1 - -50 rho/rho0 MeV, 2 - 30 rho/rho0 MeV\n";
         std::cerr << "emin: minimum energy of incoming neutrino\n";
@@ -128,6 +128,12 @@ int main(int argc, char *argv[]) {
             break;
         case 3:
             total_3p3h(emin_delta, emax_delta, nr_d, Global, oxygen, suffix);
+            break;
+        case 4:
+            total_2p2h(emin_delta, emax_delta, nr_d, Global, oxygen, suffix);
+            break;
+        case 5:
+            generate_table_2p2h_MC(suffix);
             break;
     }
 
