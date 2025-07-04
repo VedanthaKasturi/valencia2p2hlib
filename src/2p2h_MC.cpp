@@ -64,7 +64,7 @@ void saveEvents_2p2h(double Ein, std::string name, int nr, nucleus_str* nuc) {
          * We generate the energy of the outgoing lepton. The energy will exist between two limits: lepton mass and the energy transfered to the nucleon by the W boson
          * This is our 2nd variable to integrate over
          */
-        Eout_lepton = lepton_mass+corr_in_medium+(Ein-lepton_mass-corr_in_medium)*frandom();
+        Eout_lepton = lepton_mass+(Ein-lepton_mass-corr_in_medium)*frandom(); // corrected energy of the outgoing lepton
 
         w = Ein-Eout_lepton-corr_in_medium;
         /**
@@ -675,7 +675,7 @@ void saveEvents_2p2h_variedEnergy(double Enu_low, double Enu_high, std::string n
 
         double corr_in_medium = nuc->Q_2p2h;
 
-        Eout_lepton = lepton_mass+corr_in_medium+(Ein-lepton_mass-corr_in_medium)*frandom();
+        Eout_lepton = lepton_mass+(Ein-lepton_mass-corr_in_medium)*frandom(); // corrected energy of the outgoing lepton
 
         w = Ein-Eout_lepton-corr_in_medium;
 
