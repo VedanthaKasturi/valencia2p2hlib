@@ -843,6 +843,7 @@ void saveEvents_2p2h_fluxWeighted(std::string flux_file, std::string flux_hist_n
     TTree* tf = new TTree("treeout", "Tree of events");
     tf->Branch("e", "event", &e);
     delete e;
+    int aaaa = 0;
 
     double rho = getRho(0, nuc,true)/fermi3 + getRho(0, nuc,false)/fermi3;
     double k_fermi = pow(3*M_PI*M_PI*rho/2., 1./3.);
@@ -891,6 +892,7 @@ void saveEvents_2p2h_fluxWeighted(std::string flux_file, std::string flux_hist_n
         qq = sqrt(Ein * Ein + pow(kout,2) - 2 * kout * Ein * cos(theta_lepton));
 
         if (qq < w) result_zero = true;
+        if (qq>1.2*GeV) result_zero=true;
 
         phi_p = 2 * M_PI * frandom();
         kk = (qq + 3 * k_fermi) * frandom();
@@ -902,6 +904,8 @@ void saveEvents_2p2h_fluxWeighted(std::string flux_file, std::string flux_hist_n
         cunuc *= pow(mpi, 2);
 
         if (std::abs(cunuc.imag()) < pow(10, -20)) result_zero = true;
+
+        if (!(qq<w) && (qq>1.2*GeV) && !(std::abs(cunuc.imag())<pow(10,-20))) aaaa++;
 
         double cosi = cos(thetapi);
         double kPi1 = kk * sqrt(1 - cosi * cosi) * cos(phi_pi);

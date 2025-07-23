@@ -35,7 +35,7 @@ FLUX_FILE_T2K="$FLUX_DIR/t2k_flux.root"
 FLUX_HIST_T2K="flux_numu"
 
 # Default arguments (with flux source keyword)
-DEFAULT_ARGS=(0 0 0 0 2000 100 0 0 0 450 650 1 1 "t2k")
+DEFAULT_ARGS=(0 0 0 0 2000 100 0 0 0 450 650 10 1 "minerva")
 
 cd build
 cmake ../
