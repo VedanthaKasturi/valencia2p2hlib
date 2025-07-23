@@ -1,0 +1,24 @@
+# HTCondor submission file for lxplus
+
+# Executable
+executable = /afs/cern.ch/work/v/vkasturi/public/T2K/work/valencia2p2hlib/run.sh
+
+# Arguments to pass to your program
+# Example: <mode_2p2h> <mode_el> <ReDelta> <emin> <emax> <nr_d> <Global> <oxygen> <efixed> <nr> <en_low> <en_high>
+arguments = 0 0 0 0 2000 100 0 0 0 450 650 100 1 minerva
+
+# Standard output and error logs
+output = output_$(ClusterId).log
+error = error_$(ClusterId).log
+log = condor_$(ClusterId).log
+
+# Request resources
+request_cpus = 1
+request_memory = 10GB
+
+# Use the appropriate software environment
+# Typically, you can use LCG releases in lxplus for specific environments
++JobFlavour = "tomorrow"
+
+# Send the job
+queue
