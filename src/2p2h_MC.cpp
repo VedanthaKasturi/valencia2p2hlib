@@ -1,4 +1,5 @@
 
+#include <TH1D.h>
 #include "2p2h_MC.h"
 
 
@@ -64,7 +65,7 @@ void saveEvents_2p2h(double Ein, std::string name, int nr, nucleus_str* nuc) {
          * We generate the energy of the outgoing lepton. The energy will exist between two limits: lepton mass and the energy transfered to the nucleon by the W boson
          * This is our 2nd variable to integrate over
          */
-        Eout_lepton = lepton_mass+corr_in_medium+(Ein-lepton_mass-corr_in_medium)*frandom();
+        Eout_lepton = lepton_mass+(Ein-lepton_mass-corr_in_medium)*frandom(); // correct the min energy of lepton
 
         w = Ein-Eout_lepton-corr_in_medium;
         /**
@@ -805,4 +806,190 @@ void saveEvents_2p2h_variedEnergy(double Enu_low, double Enu_high, std::string n
     ff->Close ();
     delete ff;
 
+}
+
+
+// New function: Save events with neutrino energy sampled from a flux histogram
+void saveEvents_2p2h_fluxWeighted(std::string flux_file, std::string flux_hist_name, std::string name, int nr, nucleus_str* nuc) {
+    // Open flux file and get histogram
+    TFile* fflux = new TFile(flux_file.c_str(), "READ");
+    if (!fflux || fflux->IsZombie()) {
+        std::cerr << "Could not open flux file: " << flux_file << "\n";
+        return;
+    }
+
+    TH1D* flux_hist = (TH1D*)fflux->Get(flux_hist_name.c_str());
+    if (!flux_hist) {
+        std::cerr << "Could not find histogram " << flux_hist_name << " in " << flux_file << "\n";
+        fflux->Close();
+        delete fflux;
+        return;
+    }
+
+    flux_hist->SetDirectory(0); // Detach from file
+    fflux->Close();
+    delete fflux;
+
+    // Normalize to obtain probability density (integral over bin width)
+    double integral = flux_hist->Integral("width");
+    if (integral == 0) {
+        std::cerr << "Flux histogram integral is zero!\n";
+        return;
+    }
+    flux_hist->Scale(1. / integral);
+
+    event* e = new event;
+    TFile *ff = new TFile(name.c_str(), "recreate");
+    TTree* tf = new TTree("treeout", "Tree of events");
+    tf->Branch("e", "event", &e);
+    delete e;
+
+    double rho = getRho(0, nuc,true)/fermi3 + getRho(0, nuc,false)/fermi3;
+    double k_fermi = pow(3*M_PI*M_PI*rho/2., 1./3.);
+
+    std::complex<double> cunuc(0.,0.);
+    std::complex<double> udel(0.,0.);
+
+    int i = 0;
+    int nr_events = nr * 100000;
+    int counter = 1;
+    double Ep, phi_p, kk, phi_pi, thetapi, Epi, qq, w, theta_lepton, Eout_lepton, Ep2, r = 0;
+    bool result_zero = false;
+    bool result_zero_lind = false;
+    double Ein = 0;
+    double total_xsec = 0;
+
+    // Progress bar setup
+    int total_events = nr_events;
+    int bar_width = 50;
+    int update_interval = total_events / bar_width;
+    std::cout << "Progress: [";
+    std::cout.flush();
+
+    // Produce events
+    while (i < nr_events) {
+        Ein = flux_hist->GetRandom() * 1000.0; //std::cout << "Ein: " << Ein << "\n"; // Sample energy from flux histogram (converted to MeV)
+
+        if (Ein < lepton_mass + nuc->Q_2p2h)
+            continue;
+
+        e = new event;
+
+        if (!Global) {
+            r = nuc->rmax * frandom();
+            rho = getRho(r, nuc,true)/fermi3 + getRho(r, nuc,false)/fermi3;
+            k_fermi = pow(3*M_PI*M_PI*rho/2., 1./3.);
+        }
+
+        double corr_in_medium = nuc->Q_2p2h;
+
+        Eout_lepton = lepton_mass + (Ein - lepton_mass - corr_in_medium) * frandom(); // Corrected energy of the outgoing lepton
+        w = Ein - Eout_lepton - corr_in_medium;
+
+        theta_lepton = M_PI * frandom();
+        double kout = sqrt(Eout_lepton * Eout_lepton - lepton_mass * lepton_mass);
+        qq = sqrt(Ein * Ein + pow(kout,2) - 2 * kout * Ein * cos(theta_lepton));
+
+        if (qq < w) result_zero = true;
+
+        phi_p = 2 * M_PI * frandom();
+        kk = (qq + 3 * k_fermi) * frandom();
+        phi_pi = 2 * M_PI * frandom();
+        thetapi = M_PI * frandom();
+        Epi = w * frandom();
+
+        ulind(Epi/mpi, kk/mpi, k_fermi/mpi, cunuc, udel);
+        cunuc *= pow(mpi, 2);
+
+        if (std::abs(cunuc.imag()) < pow(10, -20)) result_zero = true;
+
+        double cosi = cos(thetapi);
+        double kPi1 = kk * sqrt(1 - cosi * cosi) * cos(phi_pi);
+        double kPi2 = kk * sqrt(1 - cosi * cosi) * sin(phi_pi);
+        double kPi3 = kk * cosi;
+
+        double lindhard = DUR(w - Epi, sqrt(pow(kPi1,2) + pow(kPi2,2) + pow(kPi3 - qq,2)), k_fermi, k_fermi);
+        double q_minus_k = sqrt(pow(kPi1,2) + pow(kPi2,2) + pow(kPi3 - qq,2));
+        if (std::abs(lindhard) < pow(10, -20)) result_zero_lind = true;
+
+        double Emax = sqrt(M*M + k_fermi*k_fermi);
+        double pom = std::max(M, Emax - (w - Epi));
+        double Emin = std::max(pom, 0.5 * (-(w - Epi) + q_minus_k * sqrt(1. - 4. * M*M / ((w - Epi)*(w - Epi) - q_minus_k * q_minus_k))));
+        if (Emin > Emax) result_zero = true;
+        if (Emin > Emax && result_zero_lind == false) std::cerr << "Wrong energy " << Emax << " " << Emin << "\n";
+
+        double Emax_2 = sqrt(M*M + k_fermi*k_fermi);
+        double pom_2 = std::max(M, Emax_2 - Epi);
+        double Emin_2 = std::max(pom_2, 0.5 * (-(Epi) + kk * sqrt(1. - 4. * M*M / (Epi*Epi - kk*kk))));
+
+        Ep2 = Emin_2 + (Emax_2 - Emin_2) * frandom();
+        if (Emin_2 > Emax_2) result_zero = true;
+
+        Ep = Emin + (Emax - Emin) * frandom();
+        if (Emin > Emax) result_zero = true;
+        if (Emin_2 > Emax_2) result_zero = true;
+
+        e->q0 = Ein - Eout_lepton;
+        e->qz = qq;
+        e->theta_lepton = theta_lepton;
+        e->rho = rho;
+        e->r = r;
+        e->E_pi = Epi;
+        e->theta_pi = thetapi;
+        e->phi_pi = phi_pi;
+        e->p_pi = kk;
+        e->E_nuc = Ep;
+        e->phi_nuc = phi_p;
+        e->E_nuc2 = Ep2;
+        e->energy_neutrino = Ein;
+
+        if (!result_zero && !result_zero_lind)
+            event_2p2h_rho_gaussian(r, Ein, theta_lepton, Ep2, Ep, phi_p, kk, phi_pi, thetapi, Epi, w, qq, rho, 1, Emax_2 - Emin_2, e, nuc, corr_in_medium);
+        else {
+            e->weight_pp = 0;
+            e->weight_np = 0;
+            e->weight_pn = 0;
+            e->weight_anti_nn = 0;
+            e->weight_anti_pn = 0;
+            e->weight_anti_np = 0;
+        }
+
+        double coeff = w * sin(theta_lepton) * (Emax - Emin) * (qq + 3 * k_fermi) * (Ein - lepton_mass - corr_in_medium) * Pi * 2 * Pi * 2 * Pi * Pi;
+        if (!Global) coeff *= nuc->rmax;
+
+        e->weight_pp *= coeff;
+        e->weight_np *= coeff;
+        e->weight_pn *= coeff;
+
+        if ((e->weight_pp + e->weight_np + e->weight_pn) != 0) {
+            tf->Fill();
+            // Progress bar update
+            if (i % update_interval == 0) {
+                std::cout << "#" << std::flush;
+            }
+            i++;
+            total_xsec += (e->weight_pp + e->weight_np + e->weight_pn);
+        }
+
+        delete e;
+        result_zero = false;
+        result_zero_lind = false;
+    }
+
+    std::cout << "] done" << std::endl;
+
+    total_xsec *= 1. / nr_events * pow(10, 38) / cm2 * 2 * Pi;
+    std::cerr << "TOTAL X-sec: " << total_xsec << "\n";
+
+    TVectorD constants(5);
+    constants[0] = nr_events;
+    constants[1] = flux_hist->GetMean();
+    constants[2] = lepton_mass;
+    constants[4] = nuc->Q_2p2h;
+    constants[3] = pow(10, 38) / cm2 * GeV;
+    constants.Write("constants");
+
+    ff->Write();
+    ff->Close();
+    delete ff;
 }
