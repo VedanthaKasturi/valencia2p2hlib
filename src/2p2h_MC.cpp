@@ -676,7 +676,7 @@ void saveEvents_2p2h_variedEnergy(double Enu_low, double Enu_high, std::string n
 
         double corr_in_medium = nuc->Q_2p2h;
 
-        Eout_lepton = lepton_mass+corr_in_medium+(Ein-lepton_mass-corr_in_medium)*frandom();
+        Eout_lepton = lepton_mass+(Ein-lepton_mass-corr_in_medium)*frandom(); // corrected lepton min energy
 
         w = Ein-Eout_lepton-corr_in_medium;
 
