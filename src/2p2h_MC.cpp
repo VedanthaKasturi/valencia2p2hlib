@@ -30,6 +30,7 @@ void saveEvents_2p2h(double Ein, std::string name, int nr, nucleus_str* nuc) {
 	std::complex<double> udel(0.,0.);  // DELTA?
 	
 	int i = 0;
+    int n_throws = 0;
 	int nr_events=nr*10000; //number of produced events
 	int counter = 1;
 	double Ep, phi_p, kk, phi_pi, thetapi, Epi, qq, w, theta_lepton,Eout_lepton ,Ep2,r=0;
@@ -179,7 +180,7 @@ void saveEvents_2p2h(double Ein, std::string name, int nr, nucleus_str* nuc) {
          * Calculate the integral volume of this event. This will contain the Jacobian of the transformation of variables and the range of integration
          */
 		double coeff = w*sin(theta_lepton)*(Emax-Emin)*(qq+3*k_fermi)*(Ein-lepton_mass-corr_in_medium)*Pi*2*Pi*2*Pi*Pi;
-//                | E_pi|     theta_mu    |    EN1    |  P_pi        |           E_mu                 |theta_pi| phiN1 | Phi_pi | theta_mu(its pi*sin(theta_lepton))
+        //        | E_pi|     theta_mu    |    EN1    |  P_pi        |           E_mu                 |theta_pi| phiN1 | Phi_pi | theta_mu(its pi*sin(theta_lepton))
 
 
 		if (!Global) coeff*=nuc->rmax; //for LFG we integrate over r
@@ -216,20 +217,22 @@ void saveEvents_2p2h(double Ein, std::string name, int nr, nucleus_str* nuc) {
 
 		
 		total_xsec+=(e->weight_pp+e->weight_np+e->weight_pn);
+        n_throws++;
 
 		
 	}
 
-    total_xsec*=1./nr_events*pow(10,38)/cm2*2*Pi;
+    total_xsec*=1./n_throws*pow(10,38)/cm2*2*Pi;
 	
 	std::cerr<<"TOTAL X-sec: "<<total_xsec<<"\n";
 	
-	TVectorD constants(5);
+	TVectorD constants(6);
 	constants[0]=nr_events;
 	constants[1]=Ein;
 	constants[2]=lepton_mass;
 	constants[4]=nuc->Q_2p2h;
 	constants[3]=pow(10,38)/cm2*GeV;
+	constants[5]=n_throws;
 		
 	constants.Write("constants");
 	
@@ -290,25 +293,25 @@ void event_2p2h_rho_gaussian(double r, double Ein, double theta_lepton, double E
 		std::cerr<<"ERROR "<<Ep<<" phi="<<phi_p<<" kpi="<<kk<<" phipi="<<phi_pi<<" thpi="<<thetapi<<" Epi="<<Epi<<" q="<<qq<<" w="<<w<<" rho="<<rho<<" "<<A00[0]<<" "<<A11[0]<<" "<<A12[0]<<" "<<A03[0]<<" "<<A33[0]<<"\n";
 	}
 
-//    for(int ite=0; ite<3; ite++){
-//        e->rho_transversal_00 [ite] = A00[ite];
-//        e->rho_transversal_11 [ite] = A11[ite];
-//        e->rho_transversal_12 [ite] = A12[ite];
-//        e->rho_transversal_03 [ite] = A03[ite];
-//        e->rho_transversal_33 [ite] = A33[ite];
-//
-//        e->pi_longitudinal_00 [ite] = B00[ite];
-//        e->pi_longitudinal_11 [ite] = B11[ite];
-//        e->pi_longitudinal_12 [ite] = B12[ite];
-//        e->pi_longitudinal_03 [ite] = B03[ite];
-//        e->pi_longitudinal_33 [ite] = B33[ite];
-//
-//        e->both_interference_00 [ite] = C00[ite];
-//        e->both_interference_11 [ite] = C11[ite];
-//        e->both_interference_12 [ite] = C12[ite];
-//        e->both_interference_03 [ite] = C03[ite];
-//        e->both_interference_33 [ite] = C33[ite];
-//    }
+    //    for(int ite=0; ite<3; ite++){
+    //        e->rho_transversal_00 [ite] = A00[ite];
+    //        e->rho_transversal_11 [ite] = A11[ite];
+    //        e->rho_transversal_12 [ite] = A12[ite];
+    //        e->rho_transversal_03 [ite] = A03[ite];
+    //        e->rho_transversal_33 [ite] = A33[ite];
+    //
+    //        e->pi_longitudinal_00 [ite] = B00[ite];
+    //        e->pi_longitudinal_11 [ite] = B11[ite];
+    //        e->pi_longitudinal_12 [ite] = B12[ite];
+    //        e->pi_longitudinal_03 [ite] = B03[ite];
+    //        e->pi_longitudinal_33 [ite] = B33[ite];
+    //
+    //        e->both_interference_00 [ite] = C00[ite];
+    //        e->both_interference_11 [ite] = C11[ite];
+    //        e->both_interference_12 [ite] = C12[ite];
+    //        e->both_interference_03 [ite] = C03[ite];
+    //        e->both_interference_33 [ite] = C33[ite];
+    //    }
 
 
 
@@ -454,7 +457,7 @@ void total_xsec_2p2h(double Ein, int nr, nucleus_str* nuc, double& total_xsec) {
 		
         double corr_in_medium = nuc->Q_2p2h;
         
-        Eout_lepton = lepton_mass+corr_in_medium+(Ein-lepton_mass-corr_in_medium)*frandom();
+        Eout_lepton = lepton_mass+(Ein-lepton_mass-corr_in_medium)*frandom();
         w = Ein-Eout_lepton-corr_in_medium;
         
         
@@ -636,6 +639,7 @@ void saveEvents_2p2h_variedEnergy(double Enu_low, double Enu_high, std::string n
     std::complex<double> udel(0.,0.);
 
     int i = 0;
+    int n_throws=0;
     int nr_events=nr*100000; //number of produced events
     int counter = 1;
     double Ep, phi_p, kk, phi_pi, thetapi, Epi, qq, w, theta_lepton,Eout_lepton ,Ep2,r=0;
@@ -661,10 +665,10 @@ void saveEvents_2p2h_variedEnergy(double Enu_low, double Enu_high, std::string n
         }
 
 
-//        if (Ein<lepton_mass+nuc->Q_2p2h) {
-//            std::cerr<<"Initial neutrino energy too small! "<<Ein<<"<"<<lepton_mass+nuc->Q_2p2h<<"\n";
-//            Enu_low = lepton_mass+nuc->Q_2p2h;
-//        }
+        //        if (Ein<lepton_mass+nuc->Q_2p2h) {
+        //            std::cerr<<"Initial neutrino energy too small! "<<Ein<<"<"<<lepton_mass+nuc->Q_2p2h<<"\n";
+        //            Enu_low = lepton_mass+nuc->Q_2p2h;
+        //        }
 
         e= new event;
 
@@ -685,7 +689,7 @@ void saveEvents_2p2h_variedEnergy(double Enu_low, double Enu_high, std::string n
         qq = sqrt(Ein*Ein + pow(kout,2) - 2*kout*Ein*cos(theta_lepton));
 
         if (qq<w) result_zero=true;
-        //if (qq>1.2*GeV) result_zero=true; //we impose a cut for the transfered momentum
+        if (qq>1.2*GeV) result_zero=true; //we impose a cut for the transfered momentum
 
         phi_p = 2*M_PI*frandom(); //generate the phi angle of the 1st initial nucleons
         //generate the 4-momentum of "pion" :
@@ -771,34 +775,33 @@ void saveEvents_2p2h_variedEnergy(double Enu_low, double Enu_high, std::string n
 
             if (i*10./nr_events == counter) {std::cerr<<"* "; counter++;}
             i++;
-
-            total_xsec+=(e->weight_pp+e->weight_np+e->weight_pn);
-
-
         }
 
         delete e;
         result_zero=false;
         result_zero_lind=false;
 
-//        if (i*10./nr_events == counter) {std::cerr<<"* "; counter++;}
-//        i++;
-//
-//        total_xsec+=(e->weight_pp+e->weight_np+e->weight_pn);
+        //        if (i*10./nr_events == counter) {std::cerr<<"* "; counter++;}
+        //        i++;
+        //
+        total_xsec+=(e->weight_pp+e->weight_np+e->weight_pn);
+        n_throws++;
 
 
     }
 
-    total_xsec*=1./nr_events*pow(10,38)/cm2*2*Pi;
+    total_xsec*=1./n_throws*pow(10,38)/cm2*2*Pi;
 
     std::cerr<<"TOTAL X-sec: "<<total_xsec<<"\n";
 
-    TVectorD constants(5);
+    TVectorD constants(6);
     constants[0]=nr_events;
     constants[1]=Ein;
     constants[2]=lepton_mass;
     constants[4]=nuc->Q_2p2h;
     constants[3]=pow(10,38)/cm2*GeV;
+    constants[5]=n_throws;
+
 
     constants.Write("constants");
 
@@ -852,6 +855,7 @@ void saveEvents_2p2h_fluxWeighted(std::string flux_file, std::string flux_hist_n
     std::complex<double> udel(0.,0.);
 
     int i = 0;
+    int n_throws = 0;
     int nr_events = nr * 100000;
     int counter = 1;
     double Ep, phi_p, kk, phi_pi, thetapi, Epi, qq, w, theta_lepton, Eout_lepton, Ep2, r = 0;
@@ -972,25 +976,29 @@ void saveEvents_2p2h_fluxWeighted(std::string flux_file, std::string flux_hist_n
                 std::cout << "#" << std::flush;
             }
             i++;
-            total_xsec += (e->weight_pp + e->weight_np + e->weight_pn);
         }
 
         delete e;
         result_zero = false;
         result_zero_lind = false;
+
+        total_xsec += (e->weight_pp + e->weight_np + e->weight_pn);
+        n_throws++;
+
     }
 
     std::cout << "] done" << std::endl;
 
-    total_xsec *= 1. / nr_events * pow(10, 38) / cm2 * 2 * Pi;
+    total_xsec *= 1. / n_throws * pow(10, 38) / cm2 * 2 * Pi;
     std::cerr << "TOTAL X-sec: " << total_xsec << "\n";
 
-    TVectorD constants(5);
+    TVectorD constants(6);
     constants[0] = nr_events;
     constants[1] = flux_hist->GetMean();
     constants[2] = lepton_mass;
     constants[4] = nuc->Q_2p2h;
     constants[3] = pow(10, 38) / cm2 * GeV;
+    constants[5] = n_throws;
     constants.Write("constants");
 
     ff->Write();
