@@ -35,11 +35,11 @@ FLUX_FILE_T2K="$FLUX_DIR/t2k_flux.root"
 FLUX_HIST_T2K="flux_numu"
 
 # Default arguments (with flux source keyword)
-DEFAULT_ARGS=(0 0 0 0 2000 100 0 0 0 450 650 10 1 "minerva")
+DEFAULT_ARGS=(0 0 0 0 2000 100 0 0 0 450 650 100 1 "t2k")
 
 cd build
-cmake ../
-make -j$(nproc)
+#cmake ../
+#make -j$(nproc)
 
 # Apply defaults for missing arguments
 for i in {1..14}; do
