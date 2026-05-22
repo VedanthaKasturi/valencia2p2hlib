@@ -30,7 +30,7 @@ void saveEvents_2p2h(double Ein, std::string name, int nr, nucleus_str* nuc) {
 	std::complex<double> udel(0.,0.);  // DELTA?
 	
 	int i = 0;
-    int n_throws = 0;
+    long long n_throws = 0;
 	int nr_events=nr*10000; //number of produced events
 	int counter = 1;
 	double Ep, phi_p, kk, phi_pi, thetapi, Epi, qq, w, theta_lepton,Eout_lepton ,Ep2,r=0;
@@ -639,7 +639,7 @@ void saveEvents_2p2h_variedEnergy(double Enu_low, double Enu_high, std::string n
     std::complex<double> udel(0.,0.);
 
     int i = 0;
-    int n_throws=0;
+    long long n_throws=0;
     int nr_events=nr*100000; //number of produced events
     int counter = 1;
     double Ep, phi_p, kk, phi_pi, thetapi, Epi, qq, w, theta_lepton,Eout_lepton ,Ep2,r=0;
@@ -855,7 +855,7 @@ void saveEvents_2p2h_fluxWeighted(std::string flux_file, std::string flux_hist_n
     std::complex<double> udel(0.,0.);
 
     int i = 0;
-    int n_throws = 0;
+    long long n_throws = 0;
     int nr_events = nr * 100000;
     int counter = 1;
     double Ep, phi_p, kk, phi_pi, thetapi, Epi, qq, w, theta_lepton, Eout_lepton, Ep2, r = 0;
