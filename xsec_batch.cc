@@ -191,6 +191,14 @@ int main(int argc, char *argv[]) {
         if (!(Emin < Emax))     result_zero = true;
         if (!(Emin_2 < Emax_2)) result_zero = true;
 
+        // saveEvents_2p2h samples Ep and Ep2 inside these windows, so the model
+        // has no support outside them and the phase-space factor (Emax-Emin) in
+        // coeff assumes exactly that.  The hadron tensor will still return a
+        // finite number for a nucleon energy outside the window, so reject here
+        // rather than hand the caller a meaningless weight.
+        if (!(Ep  >= Emin   && Ep  <= Emax))   result_zero = true;
+        if (!(Ep2 >= Emin_2 && Ep2 <= Emax_2)) result_zero = true;
+
         const double E_range = Emax_2 - Emin_2;
 
         if (result_zero || !std::isfinite(E_range) || E_range <= 0) {
