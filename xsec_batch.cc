@@ -46,7 +46,7 @@
 
 static void usage() {
     std::cerr << "Usage: ./xsec_batch <kinematics_file> <result_file> "
-                 "<mode_el> <ReDelta> <oxygen> <Global>\n";
+                 "<mode_el> <ReDelta> <oxygen> <Global> [fermi_sep]\n";
     std::cerr << "  kinematics_file: whitespace-separated rows of\n";
     std::cerr << "      Enu r theta_lepton E_lep E_pi p_pi theta_pi phi_pi E_nuc E_nuc2 phi_nuc\n";
     std::cerr << "      (MeV, fm, radians -- the generator's own units)\n";
@@ -56,6 +56,8 @@ static void usage() {
     std::cerr << "  ReDelta: 0 - 0 MeV, 1 - -50 rho/rho0 MeV, 2 - 30 rho/rho0 MeV\n";
     std::cerr << "  oxygen : 0 - C12, 1 - O16\n";
     std::cerr << "  Global : 0 - local Fermi gas (default), 1 - global Fermi gas\n";
+    std::cerr << "  fermi_sep: 1 - separation energy on, as saveEvents_2p2h sets it (default);\n";
+    std::cerr << "             0 - off, as total_xsec_2p2h leaves it\n";
 }
 
 
@@ -71,6 +73,7 @@ int main(int argc, char *argv[]) {
     const int rede    = std::stoi(argv[4]);
     const int oxygen  = std::stoi(argv[5]);
     const bool global_fg = std::stoi(argv[6]) != 0;
+    const bool fermi_sep  = (argc >= 8) ? (std::stoi(argv[7]) != 0) : true;
 
     // ---- globals, exactly as main.cc sets them -----------------------------
     M = 940*MeV;
@@ -96,7 +99,7 @@ int main(int argc, char *argv[]) {
     }
 
     // ---- nucleus, as saveEvents_2p2h selects it ----------------------------
-    FERMI = true;
+    FERMI = fermi_sep;
     Global = global_fg;
 
     nucleus_str nuc;
