@@ -52,11 +52,51 @@ double Rho_HO(double r, nucleus_str *N, bool nucleon){
 }
 
 
+//                   name      Rho      r_p    r_n   rho0_p     rho0_n     a      Q_2p2h  Qval    Qs      Z  N   rmax
 nucleus_str C12 = {"C12", Rho_HO, 1.692, 1.692, 0.076022, 0.076022, 1.082, 27.41, 16.827, 13.8778, 6, 6, 4.797};
 nucleus_str O16 = {"O16", Rho_HO, 1.833, 1.833, 0.0555037, 0.0555037, 1.544, 22.33, 14.906, 10.931, 8, 8, 5.295};
+
+// Nuclei ported from the legacy table (temp/2p2h/utils.cpp:59-66). Their densities and
+// radii carry over unchanged; the legacy Q and Qb columns land in Qval and Qs. None of
+// them has a two-nucleon removal energy, so Q_2p2h must be filled in before use.
+// TODO: supply Q_2p2h for each of the nuclei below.
+nucleus_str O18 = {"O18", Rho_HO, 1.881, 1.975, 0.0524594, 0.058584, 1.544, Q_2P2H_UNSET, 1.144, 14.413, 8, 10, 5.749};
+nucleus_str Na23 = {"Na23", Rho_F, 2.773, 2.81, 0.0889925, 0.0939948, 0.54, Q_2P2H_UNSET, 3.546, 4.887, 11, 12, 6.174};
+nucleus_str Ar40 = {"Ar40", Rho_F, 3.47, 3.64, 0.08098841, 0.0874744, 0.569, Q_2P2H_UNSET, 0.994, 7.991, 18, 22, 7.1557};
+nucleus_str Ca40 = {"Ca40", Rho_F, 3.51, 3.43, 0.0877563, 0.0931252, 0.563, Q_2P2H_UNSET, 13.809, 1.822, 20, 20, 6.943};
+nucleus_str Ca44 = {"Ca44", Rho_F, 3.573, 3.714, 0.0838054, 0.0909102, 0.563, Q_2P2H_UNSET, 3.142, 6.170, 20, 24, 7.1997};
+nucleus_str As75 = {"As75", Rho_F, 4.492, 4.64, 0.0745238, 0.0868426, 0.58, Q_2P2H_UNSET, 0.353, 1.688, 33, 42, 8.21};
+nucleus_str Cd112 = {"Cd112", Rho_F, 5.38, 5.58, 0.065956, 0.0793988, 0.58, Q_2P2H_UNSET, 2.075, 4.462, 48, 64, 9.08};
+nucleus_str Pb208 = {"Pb208", Rho_F, 6.624, 6.890, 0.0630574, 0.0865184, 0.549, Q_2P2H_UNSET, 2.368, 5.512, 82, 126, 10.188};
+
 nucleus_str GFG = {"GFG", Rho_GFG, 225./197.33, 0,0, 0, 0, 27.41, 16.827, 13.8778, 8, 8, pow(9*M_PI*8/4, 1./3.)/(225./197.33)};
 nucleus_str GFG_12 = {"GFG_12", Rho_GFG, 225./197.33, 0,0, 0, 0, 27.41, 16.827, 13.8778, 6, 6, pow(9*M_PI*6/4, 1./3.)/(225./197.33)};
 nucleus_str GFG_16 = {"GFG_16", Rho_GFG, 225./197.33, 0,0, 0, 0, 22.33, 14.906, 10.931, 8, 8, pow(9*M_PI*8/4, 1./3.)/(225./197.33)};
+
+
+nucleus_str* nucleus_by_code(int code) {
+    switch (code) {
+        case 0: return &C12;
+        case 1: return &O16;
+        case 2: return &O18;
+        case 3: return &Na23;
+        case 4: return &Ar40;
+        case 5: return &Ca40;
+        case 6: return &Ca44;
+        case 7: return &As75;
+        case 8: return &Cd112;
+        case 9: return &Pb208;
+        default: return nullptr;
+    }
+}
+
+nucleus_str* gfg_by_code(int code) { // only C12 and O16 have global-Fermi-gas counterparts
+    switch (code) {
+        case 0: return &GFG_12;
+        case 1: return &GFG_16;
+        default: return nullptr;
+    }
+}
 
 
 

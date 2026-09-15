@@ -19,15 +19,43 @@
 
 
 void saveEvents_2p2h(std::string suffix);
-void saveEvents_2p2h(bool Global, int oxygen, bool efixed, double en_low, double en_high, double nr, std::string suffix);
+void saveEvents_2p2h(bool useGlobal, int oxygen, bool efixed, double en_low, double en_high, double nr, std::string suffix);
 void saveEvents_3p3h(std::string suffix);
-void saveEvents_3p3h(bool Global, int oxygen, double en, double nr, std::string suffix);
+void saveEvents_3p3h(bool useGlobal, int oxygen, double en, double nr, std::string suffix);
 void total_2p2h(double Emin, double Emax, double nr_d, std::string name);
-void total_2p2h(double Emin, double Emax, double nr_d, bool Global, int oxygen, std::string suffix);
+void total_2p2h(double Emin, double Emax, double nr_d, bool useGlobal, int oxygen, std::string suffix);
 void total_3p3h(double Emin, double Emax, double nr_d, std::string suffix);
-void total_3p3h(double Emin, double Emax, double nr_d, bool Global, int oxygen, std::string suffix);
-void saveEvents_2p2h_flux(bool Global, int oxygen, std::string flux_file, std::string flux_hist, double nr, std::string suffix);
+void total_3p3h(double Emin, double Emax, double nr_d, bool useGlobal, int oxygen, std::string suffix);
+void saveEvents_2p2h_flux(bool useGlobal, int oxygen, std::string flux_file, std::string flux_hist, double nr, std::string suffix);
 //void saveEvents_2p2h_fluxWeighted(std::string flux_file, std::string flux_hist_name, std::string name, int nr, nucleus_str* nuc);
+
+static const char* TARGET_CODES =
+    "0=C12 1=O16 2=O18 3=Na23 4=Ar40 5=Ca40 6=Ca44 7=As75 8=Cd112 9=Pb208";
+
+/**
+ * Resolve the target code (argv[8]) to a nucleus and set NR_PART accordingly.
+ * Aborts with a message rather than leaving nuc default-constructed (null Rho pointer).
+ */
+static nucleus_str select_nucleus(int code, bool useGlobal) {
+    nucleus_str* n = useGlobal ? gfg_by_code(code) : nucleus_by_code(code);
+    if (!n) {
+        if (useGlobal)
+            std::cerr << "ERROR: no Global Fermi Gas variant for target code " << code
+                      << " (only 0=C12 and 1=O16 have one)\n";
+        else
+            std::cerr << "ERROR: unknown target code " << code << " (valid: " << TARGET_CODES << ")\n";
+        std::exit(1);
+    }
+    if (n->Q_2p2h == Q_2P2H_UNSET) {
+        std::cerr << "ERROR: Q_2p2h is not set for " << n->name
+                  << ". Fill it in src/utils.cpp before generating events.\n";
+        std::exit(1);
+    }
+    NR_PART = n->A + n->Z; // the A/Z fields hold (protons, neutrons), so their sum is the mass number
+    std::cout << "Nucleus: " << n->name << "  A=" << NR_PART
+              << "  Q_2p2h=" << n->Q_2p2h << " MeV  rmax=" << n->rmax << " fm\n";
+    return *n;
+}
 
 
 int main(int argc, char *argv[]) {
@@ -38,7 +66,7 @@ int main(int argc, char *argv[]) {
         std::cerr << "ReDelta: 0 - 0 MeV, 1 - -50 rho/rho0 MeV, 2 - 30 rho/rho0 MeV\n";
         std::cerr << "emin/emax/nr_d: args used by total modes (ignored for save modes)\n";
         std::cerr << "Global: 0 - no, 1 - yes\n";
-        std::cerr << "oxygen: 0 - C12, 1 - O16\n";
+        std::cerr << "target: " << TARGET_CODES << " (Global=1 only supports 0 and 1)\n";
         std::cerr << "efixed: 0 - no, 1 - yes (fixed Enu uses en_low)\n";
         std::cerr << "en_low/en_high: neutrino energy range in MeV (ignored if efixed=1)\n";
         std::cerr << "nr: event-statistics scale factor (same semantics as before)\n";
@@ -59,7 +87,7 @@ int main(int argc, char *argv[]) {
     std::cout<<"emax: "<<argv[5]<<"\n";
     std::cout<<"nr_d: "<<argv[6]<<"\n";
     std::cout<<"Global: "<<argv[7]<<"\n";
-    std::cout<<"oxygen: "<<argv[8]<<"\n";
+    std::cout<<"target: "<<argv[8]<<"\n";
     std::cout<<"efixed: "<<argv[9]<<"\n";
     std::cout<<"en_low: "<<argv[10]<<"\n";
     std::cout<<"en_high: "<<argv[11]<<"\n";
@@ -88,7 +116,7 @@ int main(int argc, char *argv[]) {
     double emin_delta = std::stod(argv[4]);
     double emax_delta = std::stod(argv[5]);
     int nr_d = std::stoi(argv[6]);
-    bool Global = std::stoi(argv[7]);
+    bool useGlobal = std::stoi(argv[7]); // must not be named Global: that would shadow the physics global
     int oxygen = std::stoi(argv[8]);
     bool efixed = std::stoi(argv[9]);
 
@@ -139,19 +167,19 @@ int main(int argc, char *argv[]) {
     switch (mode_2p2h) {
         case 0:
             if (use_flux) {
-                saveEvents_2p2h_flux(Global, oxygen, flux_file, flux_hist, nr, suffix);
+                saveEvents_2p2h_flux(useGlobal, oxygen, flux_file, flux_hist, nr, suffix);
             } else {
-                saveEvents_2p2h(Global, oxygen, efixed, en_low, en_high, nr, suffix);
+                saveEvents_2p2h(useGlobal, oxygen, efixed, en_low, en_high, nr, suffix);
             }
             break;
         case 1:
-            saveEvents_3p3h(Global, oxygen, en_low, nr, suffix);
+            saveEvents_3p3h(useGlobal, oxygen, en_low, nr, suffix);
             break;
         case 2:
-            total_2p2h(emin_delta, emax_delta, nr_d, Global, oxygen, suffix);
+            total_2p2h(emin_delta, emax_delta, nr_d, useGlobal, oxygen, suffix);
             break;
         case 3:
-            total_3p3h(emin_delta, emax_delta, nr_d, Global, oxygen, suffix);
+            total_3p3h(emin_delta, emax_delta, nr_d, useGlobal, oxygen, suffix);
             break;
     }
 
@@ -159,23 +187,11 @@ int main(int argc, char *argv[]) {
 }
 
 
-void saveEvents_3p3h(bool Global, int oxygen, double en, double nr, std::string suffix) {
+void saveEvents_3p3h(bool useGlobal, int oxygen, double en, double nr, std::string suffix) {
     frandom_init(0);
 
-    nucleus_str nuc;
-    if (oxygen == 1 && !Global) {
-        NR_PART = 16;
-        nuc = O16;
-    } else if (oxygen == 1 && Global) {
-        NR_PART = 16;
-        nuc = GFG_16;
-    } else if (oxygen == 0 && !Global) {
-        NR_PART = 12;
-        nuc = C12;
-    } else if (oxygen == 0 && Global) {
-        NR_PART = 12;
-        nuc = GFG_12;
-    }
+    Global = useGlobal;
+    nucleus_str nuc = select_nucleus(oxygen, useGlobal);
 
     en *= MeV;
 
@@ -197,28 +213,10 @@ void saveEvents_3p3h(std::string suffix) {
 
 	int oxygen;
 	nucleus_str nuc;
-	std::cout<<"Nucleus: C12 (0), O16 (1)\n";
+	std::cout<<"Nucleus: "<<TARGET_CODES<<"\n";
 	std::cin>>oxygen;
 
-
-    if (oxygen==1 && !Global) {
-		NR_PART=16;
-		nuc = O16;
-	}
-	else if (oxygen==1 && Global) {
-		NR_PART=16;
-		nuc = GFG_16;
-	}
-	else if (oxygen==0 && !Global){
-		NR_PART=12;
-		nuc=C12;
-	}
-	else if (oxygen==0 && Global){
-		NR_PART=12;
-		nuc=GFG_12;
-	}
-
-
+	nuc = select_nucleus(oxygen, Global);
 
 	double en;
 	double nr=1;
@@ -245,34 +243,15 @@ void saveEvents_2p2h(std::string suffix){
 
 	CH_2p2h=CC;
 	FERMI=true;
-	NR_PART=12;
-	Global = false;
 	gfg_="LFG";
-	nuc=C12;
 
 	std::cout<<"Global Fermi Gas? 0-no 1-yes\n";
     std::cin>>Global;
 
-    std::cout<<"Nucleus:  C12 (0), O16 (1)\n";
+    std::cout<<"Nucleus: "<<TARGET_CODES<<"\n";
     std::cin>>oxygen;
 
-
-    if (oxygen==1 && !Global) {
-			NR_PART=16;
-			nuc = O16;
-		}
-		else if (oxygen==1 && Global) {
-			NR_PART=16;
-			nuc = GFG_16;
-		}
-		else if (oxygen==0 && !Global){
-			NR_PART=12;
-			nuc=C12;
-		}
-		else if (oxygen==0 && Global){
-			NR_PART=12;
-			nuc=GFG_12;
-		}
+    nuc = select_nucleus(oxygen, Global);
 
     bool efixed = false;
 
@@ -317,30 +296,16 @@ void saveEvents_2p2h(std::string suffix){
     }
 }
 
-void saveEvents_2p2h(bool Global, int oxygen, bool efixed, double en_low, double en_high, double nr, std::string suffix) {
+void saveEvents_2p2h(bool useGlobal, int oxygen, bool efixed, double en_low, double en_high, double nr, std::string suffix) {
     frandom_init(0);
     nucleus_str nuc;
     std::string gfg_;
 //    CH_2p2h=CC;
     FERMI=true;
-    NR_PART=12;
-    Global = false;
     gfg_="LFG";
-    nuc=C12;
 
-    if (oxygen == 1 && !Global) {
-        NR_PART = 16;
-        nuc = O16;
-    } else if (oxygen == 1 && Global) {
-        NR_PART = 16;
-        nuc = GFG_16;
-    } else if (oxygen == 0 && !Global) {
-        NR_PART = 12;
-        nuc = C12;
-    } else if (oxygen == 0 && Global) {
-        NR_PART = 12;
-        nuc = GFG_12;
-    }
+    Global = useGlobal;
+    nuc = select_nucleus(oxygen, useGlobal);
 
     if (efixed) {
         en_low *= MeV;
@@ -378,36 +343,14 @@ void total_2p2h(double Emin, double Emax, double nr_d, std::string suffix) {
 	int oxygen;
 	nucleus_str nuc;
 
-	NR_PART=12;
-	nuc=C12;
-
-
     std::cout<<"Global Fermi Gas? 0-no 1-yes\n";
     std::cin>>Global;
 
 
-    std::cout<<"Nucleus:    C12 (0), O16 (1)\n";
+    std::cout<<"Nucleus: "<<TARGET_CODES<<"\n";
     std::cin>>oxygen;
 
-
-    if (oxygen==1 && !Global) {
-        NR_PART=16;
-        nuc = O16;
-    }
-    else if (oxygen==1 && Global) {
-        NR_PART=16;
-        nuc = GFG_16;
-    }
-    else if (oxygen==0 && !Global){
-        NR_PART=12;
-        nuc=C12;
-    }
-    else if (oxygen==0 && Global){
-        NR_PART=12;
-        nuc=GFG_12;
-    }
-
-
+    nuc = select_nucleus(oxygen, Global);
 
 	double nr = 1.;
     /*
@@ -435,24 +378,12 @@ void total_2p2h(double Emin, double Emax, double nr_d, std::string suffix) {
 }
 
 
-void total_2p2h(double Emin, double Emax, double nr_d, bool Global, int oxygen, std::string suffix) {
+void total_2p2h(double Emin, double Emax, double nr_d, bool useGlobal, int oxygen, std::string suffix) {
     std::ofstream f;
     frandom_init(0);
 
-    nucleus_str nuc;
-    if (oxygen == 1 && !Global) {
-        NR_PART = 16;
-        nuc = O16;
-    } else if (oxygen == 1 && Global) {
-        NR_PART = 16;
-        nuc = GFG_16;
-    } else if (oxygen == 0 && !Global) {
-        NR_PART = 12;
-        nuc = C12;
-    } else if (oxygen == 0 && Global) {
-        NR_PART = 12;
-        nuc = GFG_12;
-    }
+    Global = useGlobal;
+    nucleus_str nuc = select_nucleus(oxygen, useGlobal);
 
     std::ostringstream name;
     name << "total_2p2h_CC=" << CH_2p2h << "_" << nuc.name << "_" << suffix << ".txt";
@@ -478,36 +409,14 @@ void total_3p3h( double Emin, double Emax, double nr_d, std::string suffix) {
     int oxygen;
     nucleus_str nuc;
 
-    NR_PART=12;
-    nuc=C12;
-
-
-
     std::cout<<"Global Fermi Gas? 0-no 1-yes\n";
     std::cin>>Global;
 
 
-    std::cout<<"Nucleus:    C12 (0), O16 (1)\n";
+    std::cout<<"Nucleus: "<<TARGET_CODES<<"\n";
     std::cin>>oxygen;
 
-        if (oxygen==1 && !Global) {
-            NR_PART=16;
-            nuc = O16;
-        }
-        else if (oxygen==1 && Global) {
-            NR_PART=16;
-            nuc = GFG_16;
-        }
-        else if (oxygen==0 && !Global){
-            NR_PART=12;
-            nuc=C12;
-        }
-        else if (oxygen==0 && Global){
-            NR_PART=12;
-            nuc=GFG_12;
-        }
-
-
+    nuc = select_nucleus(oxygen, Global);
 
     double nr = 1.;
 
@@ -532,24 +441,12 @@ void total_3p3h( double Emin, double Emax, double nr_d, std::string suffix) {
 
 }
 
-void total_3p3h(double Emin, double Emax, double nr_d, bool Global, int oxygen, std::string suffix) {
+void total_3p3h(double Emin, double Emax, double nr_d, bool useGlobal, int oxygen, std::string suffix) {
     std::ofstream f;
     frandom_init(0);
 
-    nucleus_str nuc;
-    if (oxygen == 1 && !Global) {
-        NR_PART = 16;
-        nuc = O16;
-    } else if (oxygen == 1 && Global) {
-        NR_PART = 16;
-        nuc = GFG_16;
-    } else if (oxygen == 0 && !Global) {
-        NR_PART = 12;
-        nuc = C12;
-    } else if (oxygen == 0 && Global) {
-        NR_PART = 12;
-        nuc = GFG_12;
-    }
+    Global = useGlobal;
+    nucleus_str nuc = select_nucleus(oxygen, useGlobal);
 
     std::ostringstream name;
     name << "total_3p3h_CC=" << CH_2p2h << "_" << nuc.name << "_" << suffix << ".txt";
@@ -568,18 +465,10 @@ void total_3p3h(double Emin, double Emax, double nr_d, bool Global, int oxygen, 
 }
 
 
-void saveEvents_2p2h_flux(bool Global, int oxygen, std::string flux_file, std::string flux_hist, double nr, std::string suffix) {
+void saveEvents_2p2h_flux(bool useGlobal, int oxygen, std::string flux_file, std::string flux_hist, double nr, std::string suffix) {
     frandom_init(0);
-    nucleus_str nuc;
-    if (oxygen == 1 && !Global) {
-        NR_PART = 16; nuc = O16;
-    } else if (oxygen == 1 && Global) {
-        NR_PART = 16; nuc = GFG_16;
-    } else if (oxygen == 0 && !Global) {
-        NR_PART = 12; nuc = C12;
-    } else if (oxygen == 0 && Global) {
-        NR_PART = 12; nuc = GFG_12;
-    }
+    Global = useGlobal;
+    nucleus_str nuc = select_nucleus(oxygen, useGlobal);
     // Build output filename: include flux_hist tag for clarity
     std::string flux_tag = "flux";
     if (flux_file.find("t2k") != std::string::npos) flux_tag = "t2k";

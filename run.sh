@@ -4,7 +4,7 @@
 # Valencia2p2hlib Run Script
 # -------------------------------
 # Usage:
-#   ./run.sh <mode_2p2h> <mode_el> <ReDelta> <emin> <emax> <nr_d> <Global> <oxygen> <efixed> <en_low> <en_high> <nr> [use_flux] [flux_file] [flux_hist]
+#   ./run.sh <mode_2p2h> <mode_el> <ReDelta> <emin> <emax> <nr_d> <Global> <target> <efixed> <en_low> <en_high> <nr> [use_flux] [flux_file] [flux_hist]
 #
 # Description of parameters:
 #   mode_2p2h: 0 = save 2p2h, 1 = save 3p3h, 2 = total 2p2h, 3 = total 3p3h
@@ -12,7 +12,8 @@
 #   ReDelta: 0 = 0 MeV, 1 = -50*rho/rho0 MeV, 2 = +30*rho/rho0 MeV
 #   emin/emax/nr_d: used in total cross-section modes
 #   Global: 0 = Local Fermi Gas, 1 = Global Fermi Gas
-#   oxygen: 0 = Carbon-12, 1 = Oxygen-16
+#   target: 0=C12 1=O16 2=O18 3=Na23 4=Ar40 5=Ca40 6=Ca44 7=As75 8=Cd112 9=Pb208
+#           (Global=1 is only available for 0 and 1)
 #   efixed: 1 = fixed Enu (use en_low), 0 = uniform between [en_low, en_high]
 #   nr: event-statistics scale factor
 #   use_flux: optional (1 to use flux-based generation)
@@ -70,7 +71,7 @@ fi
 
 #if [[ $# -lt 12 ]]; then
 #  echo "Error: Not enough arguments provided."
-#  echo "Usage: ./run.sh <mode_2p2h> <mode_el> <ReDelta> <emin> <emax> <nr_d> <Global> <oxygen> <efixed> <en_low> <en_high> <nr> [use_flux] [flux_file] [flux_hist]"
+#  echo "Usage: ./run.sh <mode_2p2h> <mode_el> <ReDelta> <emin> <emax> <nr_d> <Global> <target> <efixed> <en_low> <en_high> <nr> [use_flux] [flux_file] [flux_hist]"
 #  exit 1
 #fi
 
@@ -84,7 +85,7 @@ echo "Delta ReShifting: $3"
 echo "emin: $4  emax: $5"
 echo "nr_d: $6"
 echo "Global FG: $7"
-echo "Oxygen-16?: $8"
+echo "Target: $8"
 echo "Fixed Enu?: $9"
 echo "Enu low: ${10}  high: ${11}"
 echo "Event scale (x10^5): ${12}"
