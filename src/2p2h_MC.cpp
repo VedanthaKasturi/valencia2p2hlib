@@ -153,6 +153,8 @@ void saveEvents_2p2h(double Ein, std::string name, int nr, nucleus_str* nuc) {
         e->qz = qq;
 		e->theta_lepton = theta_lepton;
 		e->rho = rho;
+		e->kF_p = fg.kF_p;
+		e->kF_n = fg.kF_n;
 		e->r=r;
 		e->E_pi = Epi;
 		e->theta_pi = thetapi;
@@ -748,6 +750,8 @@ void saveEvents_2p2h_variedEnergy(double Enu_low, double Enu_high, std::string n
         e->qz = qq;
         e->theta_lepton = theta_lepton;
         e->rho = rho;
+        e->kF_p = fg.kF_p;
+        e->kF_n = fg.kF_n;
         e->r=r;
         e->E_pi = Epi;
         e->theta_pi = thetapi;
@@ -952,6 +956,8 @@ void saveEvents_2p2h_fluxWeighted(std::string flux_file, std::string flux_hist_n
         e->qz = qq;
         e->theta_lepton = theta_lepton;
         e->rho = rho;
+        e->kF_p = fg.kF_p;
+        e->kF_n = fg.kF_n;
         e->r = r;
         e->E_pi = Epi;
         e->theta_pi = thetapi;

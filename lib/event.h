@@ -30,7 +30,9 @@ public:
 	double weight_anti_pn;
 	double weight_anti_np;
     double energy_neutrino;
-    double fermi_momentum;
+    double fermi_momentum; // isospin-averaged kF
+    double kF_p;           // proton Fermi momentum at r
+    double kF_n;           // neutron Fermi momentum at r
     double lindhard_Value;
     double transverse_response;
     double mixed_response;
@@ -52,10 +54,10 @@ public:
 
  
     
-    event ():weight_pp(0),weight_pn(0),weight_np(0),weight_anti_nn(0),weight_anti_pn(0),weight_anti_np(0){}///< default constructor
+    event ():weight_pp(0),weight_pn(0),weight_np(0),weight_anti_nn(0),weight_anti_pn(0),weight_anti_np(0),kF_p(0),kF_n(0){}///< default constructor
 
     
-    ClassDef(event,1);
+    ClassDef(event,2);
 };
 
 
