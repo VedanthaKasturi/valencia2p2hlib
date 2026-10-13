@@ -31,12 +31,13 @@ struct nucleus_str {
     double rho0_p;
     double rho0_n;
     double a;
-    double Q_2p2h;
+    double Q_2p2h;      // neutrinos: two-proton separation energy S_2p
     double Qval;
     double Qs;
-    int A;          // MISNOMER: this is the number of PROTONS (Z), not the mass number
-    int Z;          // MISNOMER: this is the number of NEUTRONS (N)
+    int Z;          // number of protons
+    int N;          // number of neutrons
     double rmax;
+    double Q_2p2h_anti; // antineutrinos: two-neutron separation energy S_2n
 };
 double Rho_F(double r, nucleus_str *N, bool nucleon);
 double Rho_HO(double r, nucleus_str *N, bool nucleon);
@@ -68,6 +69,20 @@ void rho_mod_ho(double &r, double &a);
 void rho_mod_f(double &r, double &a);
 
 double getRho(double r, nucleus_str*, bool nucleon);
+
+// Local nucleon densities and Fermi momenta of the nucleus at radius r (internal units).
+// kF is the isospin-averaged Fermi momentum (3 pi^2 rho/2)^(1/3) that the code currently uses
+// for both species; kF_p and kF_n are the per-species values (3 pi^2 rho_p)^(1/3), (3 pi^2 rho_n)^(1/3).
+struct FermiGas {
+    double rho_p;
+    double rho_n;
+    double rho;     // rho_p + rho_n
+    double kF;
+    double kF_p;
+    double kF_n;
+    double kF_max;  // max(kF_p, kF_n)
+};
+FermiGas local_fermi_gas(double r, nucleus_str *N);
 
 
 

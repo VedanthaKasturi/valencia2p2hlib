@@ -51,10 +51,13 @@ static nucleus_str select_nucleus(int code, bool useGlobal) {
                   << ". Fill it in src/utils.cpp before generating events.\n";
         std::exit(1);
     }
-    NR_PART = n->A + n->Z; // the A/Z fields hold (protons, neutrons), so their sum is the mass number
-    std::cout << "Nucleus: " << n->name << "  A=" << NR_PART
-              << "  Q_2p2h=" << n->Q_2p2h << " MeV  rmax=" << n->rmax << " fm\n";
-    return *n;
+    NR_PART = n->Z + n->N; // protons + neutrons = mass number
+    nucleus_str sel = *n;
+    // Neutrinos are dominated by pp final states, antineutrinos by nn: use S_2p or S_2n as the one Q_2p2h
+    if (CH_2p2h == CCanti) sel.Q_2p2h = sel.Q_2p2h_anti;
+    std::cout << "Nucleus: " << sel.name << "  A=" << NR_PART
+              << "  Q_2p2h=" << sel.Q_2p2h << " MeV  rmax=" << sel.rmax << " fm\n";
+    return sel;
 }
 
 
