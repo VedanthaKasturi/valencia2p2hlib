@@ -101,6 +101,8 @@ const double CG2ND[11]={0,onethird,2*onethird,2*onethird,onethird};
 //  p --> p + pi-  channel = 4 ==  2
 //  n --> n + pi-  channel = 5 ==  1
 //  p --> n + pi0  channel = 6 == -3
+// For antineutrinos the code uses the p<->n mirror of the neutrino channels: slot 1 (final nn) takes
+// channel 5, slot 2 (final pn) channel 4 and slot 3 (final np) channel 6 (see chans[] in the hadron_tensor files).
 
 const double CGDP_v[16]={cabbibo,   cabbibo,  cabbibo*onethird,   -cabbibo*onethird*sqrt2,    cabbibo*onethird,   cabbibo,  cabbibo*onethird*sqrt2,
     2./3.*sqrt2*(1-2*sin2wein),     2./3.*sqrt2*(1-2*sin2wein),     -2./3.*(1-2*sin2wein), 2./3.*(1-2*sin2wein),

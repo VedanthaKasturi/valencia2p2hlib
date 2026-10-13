@@ -32,114 +32,120 @@ CHANNEL CH_2p2h=CC;
  
  **********************/
 
-void hadron_2p2h_part1_Epi_thetapi_phipi_kpi_phip_Ep_isospin(double Ep, double phi_p, double kk, double phi_pi, double thetapi, double Epi, double qq, double w, double rho, D4V<DM>axial_nuc, D4V<DM> vector_nuc, D4V<DM> scalar_nuc, std::complex<double>* A00, std::complex<double>* A11, std::complex<double>* A12, std::complex<double>* A03, std::complex<double>* A33) {
+void hadron_2p2h_part1_Epi_thetapi_phipi_kpi_phip_Ep_isospin(double Ep, double phi_p, double kk, double phi_pi, double thetapi, double Epi, double qq, double w, const FermiGas& fg, D4V<DM>axial_nuc, D4V<DM> vector_nuc, D4V<DM> scalar_nuc, std::complex<double>* A00, std::complex<double>* A11, std::complex<double>* A12, std::complex<double>* A03, std::complex<double>* A33) {
 	
-	double k_fermi = pow(3*M_PI*M_PI*rho/2., 1./3.);
+	const double rho = fg.rho;
 	
-	std::complex<double> cunuc(0.,0.);
-	std::complex<double> udel(0.,0.);
-	std::complex<double> utot(0.,0.);
-	
-	ulind(Epi/mpi, kk/mpi, k_fermi/mpi,cunuc, udel);
-	cunuc*=pow(mpi,2);//*fpNN2/mpi/mpi*gprime;
-	udel*=pow(mpi,2);//*fpNN2/mpi/mpi*gprime;
-	
-	udel=delta_lind (Epi*fermi,kk*fermi, rho*fermi3, k_fermi*fermi);
-	udel/=(fermi*fermi);
+	//Lindhard functions of the pion that is absorbed (second bubble), for its charge
+	PionBubbles pb;
+	pion_bubbles(fg, Epi, kk, pb, true);
 	
 	
 	//INTEGRATION PARAMETERS
 	double cosi=cos(thetapi);
 	
-	double mom_nuc=sqrt(3./5.)*k_fermi;
 	double cos_theta_nuc=0; //USUNAC
 	double sin_theta_nuc=sqrt(1.-pow(cos_theta_nuc,2));
 	
-	D4V<double> p(sqrt(M*M+mom_nuc*mom_nuc)-k_fermi*k_fermi/2./M*FERMI,0,mom_nuc*sin_theta_nuc,mom_nuc*cos_theta_nuc); //nukleon
-	D4V<double> p_med(sqrt(M*M+mom_nuc*mom_nuc)-k_fermi*k_fermi/2./M*FERMI,0,mom_nuc*sin_theta_nuc,mom_nuc*cos_theta_nuc); //nukleon
 	D4V<double> q(w,0,0,qq);
 	D4V<double> kPi(Epi, kk*sqrt(1-cosi*cosi)*cos(phi_pi), kk*sqrt(1-cosi*cosi)*sin(phi_pi), kk*cosi);
 	
 	
-	if (std::abs(cunuc.imag())<pow(10,-20)) {
+	if (!pion_bubbles_open(pb, pow(10,-20))) {
 		A00[0]=A11[0]=A12[0]=A03[0]=A33[0]=0;
 		A00[1]=A11[1]=A12[1]=A03[1]=A33[1]=0;
 		A00[2]=A11[2]=A12[2]=A03[2]=A33[2]=0;
 		return;}
 	
-	double lindhard = DUR(q(0)-kPi(0), sqrt(pow(kPi(1),2)+pow(kPi(2),2)+pow(kPi(3)-qq,2)),k_fermi, k_fermi);
 	double q_minus_k = sqrt(pow(kPi(1),2)+pow(kPi(2),2)+pow(kPi(3)-qq,2));
 	
-	if (std::abs(lindhard)<pow(10,-20)) {
+	//the three isospin slots have their own bubble (hole and particle species, hence their own Fermi momenta)
+	BubbleSpecies vb[3];
+	double kF_hole[3], lindhard[3], Emin[3], Emax[3];
+	bool open[3];
+	int first_open=-1;
+	for (int k=0; k<3; k++) {
+		vb[k] = vertex_bubble(k);
+		kF_hole[k] = kF_of(fg, vb[k].hole);
+		lindhard[k] = DUR(q(0)-kPi(0), sqrt(pow(kPi(1),2)+pow(kPi(2),2)+pow(kPi(3)-qq,2)), kF_hole[k], kF_of(fg, vb[k].part));
+		bubble_limits(q(0)-kPi(0), q_minus_k, kF_hole[k], kF_of(fg, vb[k].part), Emin[k], Emax[k]);
+		open[k] = !(std::abs(lindhard[k])<pow(10,-20)) && !(Ep<Emin[k]) && !(Ep>Emax[k]);
+		if (open[k] && first_open<0) first_open=k;
+	}
+	
+	if (first_open<0) {
 		A00[0]=A11[0]=A12[0]=A03[0]=A33[0]=0;
 		A00[1]=A11[1]=A12[1]=A03[1]=A33[1]=0;
 		A00[2]=A11[2]=A12[2]=A03[2]=A33[2]=0;
 		return;}
 	
-	double Emax=sqrt(M*M+k_fermi*k_fermi);
-	double pom = std::max(M,Emax-(w-Epi));
-	double Emin=std::max(pom, 0.5*(-(w-Epi)+q_minus_k*sqrt(1.-4.*M*M/((w-Epi)*(w-Epi)-q_minus_k*q_minus_k))));
 	
-	
-
 	double aver_en_1st = Ep;
-	mom_nuc = sqrt(aver_en_1st*aver_en_1st-M*M);
+	double mom_nuc = sqrt(aver_en_1st*aver_en_1st-M*M);
 	cos_theta_nuc = ( pow(q(0)-kPi(0),2)-q_minus_k*q_minus_k + 2.*aver_en_1st*(q(0)-kPi(0)) )/(2.*mom_nuc*q_minus_k);
 	
 	if (std::abs(cos_theta_nuc)>1) {
 		A00[0]=A11[0]=A12[0]=A03[0]=A33[0]=0;
 		A00[1]=A11[1]=A12[1]=A03[1]=A33[1]=0;
 		A00[2]=A11[2]=A12[2]=A03[2]=A33[2]=0;
-		std::cerr<<"Error DIR! CosTh="<<cos_theta_nuc<<" w="<<w<<" q="<<qq<<" Epi="<<Epi<<" kpi="<<kk<<" phi_pi="<<phi_pi<<" theta_pi="<<thetapi<<" Ep="<<Ep <<" Lind="<<lindhard<<" Emin,max="<<Emin<<", "<<Emax<<"q-k="<<q_minus_k<<" w-Epi="<<w-Epi<<"\n";
+		std::cerr<<"Error DIR! CosTh="<<cos_theta_nuc<<" w="<<w<<" q="<<qq<<" Epi="<<Epi<<" kpi="<<kk<<" phi_pi="<<phi_pi<<" theta_pi="<<thetapi<<" Ep="<<Ep <<" Lind="<<lindhard[first_open]<<" Emin,max="<<Emin[first_open]<<", "<<Emax[first_open]<<"q-k="<<q_minus_k<<" w-Epi="<<w-Epi<<"\n";
 		return;
 	}
 	sin_theta_nuc=sqrt(1.-pow(cos_theta_nuc,2));
-    p(0)=aver_en_1st-k_fermi*k_fermi/2./M*FERMI;
-	p(1)=mom_nuc*sin_theta_nuc*cos(phi_p);
-	p(2)=mom_nuc*sin_theta_nuc*sin(phi_p);
-	p(3)=mom_nuc*cos_theta_nuc; //nukleon
-	rotate(p,q-kPi);
-	
-	
-	
-	
-	p_med(0)=aver_en_1st-k_fermi*k_fermi/2./M*FERMI;
-	p_med(1)=mom_nuc*sin_theta_nuc*cos(phi_p);
-	p_med(2)=mom_nuc*sin_theta_nuc*sin(phi_p);
-	p_med(3)=mom_nuc*cos_theta_nuc; //nucleon
-	rotate(p_med,q-kPi);
-	
-	//	}
-	//	std::cerr<<"CosTh="<<cos_theta_nuc<<" E="<<Ep<<"\n";
-	
-	//    D4V<double> kPi(x[0], 0,0,0);
-	D4V<double> pprime=p+q-kPi;
-	
-	
-	DM pslash=p*dirac;
-	DM pslash_med=p_med*dirac;
-	
-	DM qslash=q*dirac;
 	
 	channel = 0; //we calculate everything with CG coefficients = 1
-	D4V<DM> delta_cur_vec, delta_cur_ax, delta_cur_cross_vec, delta_cur_cross_ax, nucl_cur_vec, nucl_cur_ax,nucl_cur_s,  nucl_cur_cross_vec, nucl_cur_cross_ax, nucl_cur_cross_s, vector_contact, axial_contact, pion_pole_cur, pion_in_flight_cur;
-	/**
-	 * Delta current in medium and crossed. This part is the one with resonance
-	 */
-    delta_current_medium(rho, p_med, q, kPi, pslash_med, qslash, delta_cur_vec, delta_cur_ax);
-	delta_current_crossed_medium(rho, p_med, q, kPi, pslash_med, qslash, delta_cur_cross_vec, delta_cur_cross_ax);
+	D4V<DM> vector_contact, axial_contact, pion_pole_cur, pion_in_flight_cur;
+	DM qslash=q*dirac;
 	
 	pion_pole(q,kPi,qslash, pion_pole_cur);
 	contact_term(q,kPi, vector_contact, axial_contact);
 	pion_in_flight(q,kPi, pion_in_flight_cur);
-
 	
-	D4V<double> p_inter=p+q;
-	double p_inter_mom = sqrt(p_inter(1)*p_inter(1)+p_inter(2)*p_inter(2)+p_inter(3)*p_inter(3));
+	//the Pauli blocking of the intermediate nucleon of the direct and of the crossed nucleon pole depends on its species
+	bool nucl_direct=false, nucl_crossed=false;
 	
-	if (p_inter_mom>k_fermi) {
-		nucleon_cross_current_medium(kPi, p_med, q, pslash_med, qslash, vector_nuc, axial_nuc, scalar_nuc, nucl_cur_cross_vec, nucl_cur_cross_ax, nucl_cur_cross_s,k_fermi*k_fermi/2./M*FERMI);
-		nucleon_current_medium(kPi, p_med, q, pslash_med, qslash, vector_nuc, axial_nuc, scalar_nuc, nucl_cur_vec, nucl_cur_ax, nucl_cur_s,k_fermi*k_fermi/2./M*FERMI);
+	//currents of the W vertex on a hole; they depend on the species of the hole through its removal-energy shift only
+	struct HoleCurrents {
+		DM pslash, pslash_med, pprimeslash;
+		D4V<DM> delta_cur_vec, delta_cur_ax, delta_cur_cross_vec, delta_cur_cross_ax, nucl_cur_vec, nucl_cur_ax, nucl_cur_s, nucl_cur_cross_vec, nucl_cur_cross_ax, nucl_cur_cross_s;
+	};
+	HoleCurrents hole_cur[2];
+	bool hole_built[2]={false,false};
+	const bool same_species = (fg.kF_p==fg.kF_n); //then both species share the currents
+	
+	for (int k=0; k<3; k++) {
+		if (!open[k]) continue;
+		int idx = same_species ? 0 : (vb[k].hole==PROT ? 0 : 1);
+		if (hole_built[idx]) continue;
+		hole_built[idx]=true;
+		HoleCurrents& H = hole_cur[idx];
+		double shift = kF_hole[k]*kF_hole[k]/2./M*FERMI;
+		
+		D4V<double> p(aver_en_1st-shift,mom_nuc*sin_theta_nuc*cos(phi_p),mom_nuc*sin_theta_nuc*sin(phi_p),mom_nuc*cos_theta_nuc); //nukleon
+		rotate(p,q-kPi);
+		D4V<double> p_med(aver_en_1st-shift,mom_nuc*sin_theta_nuc*cos(phi_p),mom_nuc*sin_theta_nuc*sin(phi_p),mom_nuc*cos_theta_nuc); //nucleon
+		rotate(p_med,q-kPi);
+		
+		D4V<double> pprime=p+q-kPi;
+		H.pslash=p*dirac;
+		H.pslash_med=p_med*dirac;
+		H.pprimeslash=pprime*dirac+M_N*identi;
+		
+		/**
+		 * Delta current in medium and crossed. This part is the one with resonance
+		 */
+		delta_current_medium(rho, p_med, q, kPi, H.pslash_med, qslash, H.delta_cur_vec, H.delta_cur_ax);
+		delta_current_crossed_medium(rho, p_med, q, kPi, H.pslash_med, qslash, H.delta_cur_cross_vec, H.delta_cur_cross_ax);
+		
+		D4V<double> p_inter=p+q;
+		double p_inter_mom = sqrt(p_inter(1)*p_inter(1)+p_inter(2)*p_inter(2)+p_inter(3)*p_inter(3));
+		nucl_direct  = p_inter_mom>kF_of(fg, intermediate_direct());
+		nucl_crossed = p_inter_mom>kF_of(fg, intermediate_crossed());
+		
+		if (nucl_crossed)
+			nucleon_cross_current_medium(kPi, p_med, q, H.pslash_med, qslash, vector_nuc, axial_nuc, scalar_nuc, H.nucl_cur_cross_vec, H.nucl_cur_cross_ax, H.nucl_cur_cross_s,shift);
+		if (nucl_direct)
+			nucleon_current_medium(kPi, p_med, q, H.pslash_med, qslash, vector_nuc, axial_nuc, scalar_nuc, H.nucl_cur_vec, H.nucl_cur_ax, H.nucl_cur_s,shift);
 	}
 	
 	
@@ -160,28 +166,35 @@ void hadron_2p2h_part1_Epi_thetapi_phipi_kpi_phip_Ep_isospin(double Ep, double p
     eff_long=1.+ gprime1*onShell/((kk*kk)*f_pi*f_pi);
  
 	
-	DM pprimeslash=pprime*dirac+M_N*identi;
-	
-	
 	
 	D4V<DM> j1,j2, np1, np2, del1, del2, pf1, pf2;
 	D4T<std::complex<double>> Wmunu_1(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0);
 	D4T<std::complex<double>> Wmunu_2(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0);
 	D4T<std::complex<double>> Wmunu_3(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0);
-	int min_ch=1;
-	int max_ch=4;
-
-    if (CH_2p2h==CCanti) {
-        min_ch=4;
-        max_ch=7;
-    }
+	D4T<std::complex<double>>* Wmunu[3]={&Wmunu_1,&Wmunu_2,&Wmunu_3};
+	// Isospin channels entering the three slots W_1, W_2, W_3 (A[0], A[1], A[2]). The antineutrino channels are
+	// the p<->n mirror of the neutrino ones (4==2, 5==1, 6==-3 in constants.h), so slot 1 takes channel 5
+	// (n -> n pi-, final nn), slot 2 channel 4 (p -> p pi-, final pn) and slot 3 channel 6 (p -> n pi0).
+	int chans[3]={1,2,3};
+	if (CH_2p2h==CCanti) {
+		chans[0]=5;
+		chans[1]=4;
+		chans[2]=6;
+	}
     
 	
-	for (int ch= min_ch; ch<max_ch; ch++) {
+	for (int k=0; k<3; k++) {
+		if (!open[k]) continue;
+		int ch=chans[k];
+		HoleCurrents& H = hole_cur[same_species ? 0 : (vb[k].hole==PROT ? 0 : 1)];
 		
-		j1 =(CGDP_v[ch]/CGDP_v[0])*delta_cur_vec + (CGDP_a[ch]/CGDP_a[0])*delta_cur_ax +(CGDPC_v[ch]/CGDPC_v[0])*delta_cur_cross_vec + (CGDPC_a[ch]/CGDPC_a[0])*delta_cur_cross_ax; // Delta added
-		if (p_inter_mom>k_fermi)
-            j1+=(CGNP_v[ch]/CGNP_v[0])*nucl_cur_vec + (CGNP_a[ch]/CGNP_a[0])*nucl_cur_ax +(CGNPC_v[ch]/CGNPC_v[0])*nucl_cur_cross_vec+(CGNPC_a[ch]/CGNPC_a[0])*nucl_cur_cross_ax+(CGNPC_s[ch]/CGNPC_s[0])*nucl_cur_cross_s+(CGNP_s[ch]/CGNP_s[0])*nucl_cur_s;
+		j1 =(CGDP_v[ch]/CGDP_v[0])*H.delta_cur_vec + (CGDP_a[ch]/CGDP_a[0])*H.delta_cur_ax +(CGDPC_v[ch]/CGDPC_v[0])*H.delta_cur_cross_vec + (CGDPC_a[ch]/CGDPC_a[0])*H.delta_cur_cross_ax; // Delta added
+		if (nucl_direct && nucl_crossed)
+            j1+=(CGNP_v[ch]/CGNP_v[0])*H.nucl_cur_vec + (CGNP_a[ch]/CGNP_a[0])*H.nucl_cur_ax +(CGNPC_v[ch]/CGNPC_v[0])*H.nucl_cur_cross_vec+(CGNPC_a[ch]/CGNPC_a[0])*H.nucl_cur_cross_ax+(CGNPC_s[ch]/CGNPC_s[0])*H.nucl_cur_cross_s+(CGNP_s[ch]/CGNP_s[0])*H.nucl_cur_s;
+		else if (nucl_direct)
+            j1+=(CGNP_v[ch]/CGNP_v[0])*H.nucl_cur_vec + (CGNP_a[ch]/CGNP_a[0])*H.nucl_cur_ax+(CGNP_s[ch]/CGNP_s[0])*H.nucl_cur_s;
+		else if (nucl_crossed)
+            j1+=(CGNPC_v[ch]/CGNPC_v[0])*H.nucl_cur_cross_vec+(CGNPC_a[ch]/CGNPC_a[0])*H.nucl_cur_cross_ax+(CGNPC_s[ch]/CGNPC_s[0])*H.nucl_cur_cross_s;
 		// Nucleon part added
 		j1*=eff_long;
         
@@ -192,8 +205,8 @@ void hadron_2p2h_part1_Epi_thetapi_phipi_kpi_phip_Ep_isospin(double Ep, double p
 		
 		j2 = j1;
 		
-		j1 &=pprimeslash;
-		j1 *=(pslash+M_N*identi);
+		j1 &=H.pprimeslash;
+		j1 *=(H.pslash+M_N*identi);
 		
 		
 		j2.hermit();
@@ -204,8 +217,8 @@ void hadron_2p2h_part1_Epi_thetapi_phipi_kpi_phip_Ep_isospin(double Ep, double p
 	
 		 pf1=(CGPF_v[ch]/CGPF_v[0])*pion_in_flight_cur;
 		 pf2=pf1;
-		 pf1 &=pprimeslash;
-		 pf1 *=(pslash+M_N*identi);
+		 pf1 &=H.pprimeslash;
+		 pf1 *=(H.pslash+M_N*identi);
 		 pf2.hermit();
 		 pf2 &=gamma0;
 		 pf2 *=gamma0;
@@ -215,12 +228,12 @@ void hadron_2p2h_part1_Epi_thetapi_phipi_kpi_phip_Ep_isospin(double Ep, double p
 		
 		//now we subtract NP-NP
 		
-		if (CGNP_v[ch]!=0 && CGNP_a[ch]!=0  && p_inter_mom>k_fermi) {
-            np1= (CGNP_v[ch]/CGNP_v[0])*nucl_cur_vec + (CGNP_a[ch]/CGNP_a[0])*nucl_cur_ax+(CGNP_s[ch]/CGNP_s[0])*nucl_cur_s;
+		if (CGNP_v[ch]!=0 && CGNP_a[ch]!=0  && nucl_direct) {
+            np1= (CGNP_v[ch]/CGNP_v[0])*H.nucl_cur_vec + (CGNP_a[ch]/CGNP_a[0])*H.nucl_cur_ax+(CGNP_s[ch]/CGNP_s[0])*H.nucl_cur_s;
 			np1*=eff_long;
 			np2=np1;
-			np1 &=pprimeslash;
-			np1 *=(pslash+M_N*identi);
+			np1 &=H.pprimeslash;
+			np1 *=(H.pslash+M_N*identi);
 			np2.hermit();
 			np2 &=gamma0;
 			np2 *=gamma0;
@@ -231,58 +244,69 @@ void hadron_2p2h_part1_Epi_thetapi_phipi_kpi_phip_Ep_isospin(double Ep, double p
 		
 		
 		D4T<std::complex<double>> Bmunu(Amunu.CT(Amunu));
-		if (ch==min_ch) Wmunu_1+=Bmunu;
-		else if (ch==min_ch+1) Wmunu_2+=Bmunu;
-		else  Wmunu_3+=Bmunu;
+		(*Wmunu[k])+=Bmunu;
 	}
 	
 	
-	
-	
-	utot=cunuc+udel;
 	
 	
 	double pi_fact = pow(f_pi,2)*pow(gA/2./fpi,2)*kk*kk;
     gprime1 = gprime_l(kPi*kPi,kk*kk);
 	double factg = pow(gA/2./fpi,2)*gprime1;
 	
+	//dressing of the absorbed pion: ONLY NUCLEON IN THE NOMINATOR, nucleon and Delta in the RPA denominator
+	auto pion_inc = [&](const std::complex<double>& Nabs, const std::complex<double>& Ntot, const std::complex<double>& Dtot) -> double {
+		std::complex<double> utot=Ntot+Dtot;
+		std::complex<double> pionImSelf = pi_fact*utot/(1.-factg*utot);
+		std::complex<double> pionImSelf_nuc = pi_fact*Nabs;
+		return pionImSelf_nuc.imag()/pow(std::abs(1.-factg*utot),2)/(pow(kPi*kPi-mpi*mpi-pionImSelf.real(),2)+pow(pionImSelf.imag(),2));
+	};
+	//charged pion (slots 0 and 1) and neutral pion absorbed on a proton or on a neutron. The pi0 of slot 0 is
+	//absorbed on the nucleon of its final state N2', the pi0 of slot 2 on the other one.
+	double pionInc_ch = pion_inc(pb.N_ch, pb.N_ch, pb.D_ch);
+	double pionInc_0[2] = {pion_inc(pb.N_0abs[PROT], pb.N_0, pb.D_0), pion_inc(pb.N_0abs[NEUT], pb.N_0, pb.D_0)};
+	Nucleon abs0 = vb[0].part;
+	Nucleon abs2 = mirror(abs0);
 	
-	std::complex<double> pionImSelf = pi_fact*utot/(1.-factg*utot);
-	std::complex<double> pionImSelf_nuc = pi_fact*cunuc;
-	
-	double pionInc = pionImSelf_nuc.imag()/pow(std::abs(1.-factg*utot),2)/(pow(kPi*kPi-mpi*mpi-pionImSelf.real(),2)+pow(pionImSelf.imag(),2)); //ONLY NUCLEON IN THE NOMINATOR
-
-	
-	
-	double coeff =pow(f_pi,2)*pionInc*lindhard
-	
-	/M/M
-	
-	*kk*kk/pow(2*M_PI,4)/2.*sqrt(1-cosi*cosi)/(Emax-Emin)/(2.*M_PI); // angle /2 from Amunu trace
+	//each slot has its own first bubble: Lindhard function and hole-energy range
+	auto cf = [&](int k, double pionInc) -> double {
+		if (!open[k]) return 0.;
+		return pow(f_pi,2)*pionInc*lindhard[k]
+		
+		/M/M
+		
+		*kk*kk/pow(2*M_PI,4)/2.*sqrt(1-cosi*cosi)/(Emax[k]-Emin[k])/(2.*M_PI); // angle /2 from Amunu trace
+	};
 	//dim: 2-2+2  -2 +2 + 2 = 4
+	double coeffA=cf(0,pionInc_ch);          //ch 1: slot 0
+	double coeffB=cf(1,pionInc_ch);          //ch 2: slot 1
+	double coeffC=cf(2,pionInc_0[abs0]);     //ch 3, pi0 absorbed on abs0: slot 0
+	double coeffD=cf(2,pionInc_0[abs2]);     //ch 3, pi0 absorbed on abs2: slot 2
 	
+	//slot 0 is W_1 + W_3 (pi0 absorbed on a proton): at Z=N the pi0 splits in two equal halves
+	auto slot0 = [&](int i, int j) -> std::complex<double> {
+		if (coeffA==2.*coeffC) return coeffA*(Wmunu_1(i,j)+Wmunu_3(i,j)/2.);
+		return coeffA*Wmunu_1(i,j)+coeffC*Wmunu_3(i,j);
+	};
+
+	A00[0]=slot0(0,0);
+	A11[0]=slot0(1,1);
+	A03[0]=slot0(0,3);
+	A12[0]=slot0(1,2);
+	A33[0]=slot0(3,3);
 	
-	A00[0]=coeff*(Wmunu_1(0,0)+Wmunu_3(0,0)/2.);
-	A11[0]=coeff*(Wmunu_1(1,1)+Wmunu_3(1,1)/2.);
-	A03[0]=coeff*(Wmunu_1(0,3)+Wmunu_3(0,3)/2.);
-	A12[0]=coeff*(Wmunu_1(1,2)+Wmunu_3(1,2)/2.);
-	A33[0]=coeff*(Wmunu_1(3,3)+Wmunu_3(3,3)/2.);
+	A00[1]=coeffB*Wmunu_2(0,0);
+	A11[1]=coeffB*Wmunu_2(1,1);
+	A03[1]=coeffB*Wmunu_2(0,3);
+	A12[1]=coeffB*Wmunu_2(1,2);
+	A33[1]=coeffB*Wmunu_2(3,3);
 	
-	A00[1]=coeff*Wmunu_2(0,0);
-	A11[1]=coeff*Wmunu_2(1,1);
-	A03[1]=coeff*Wmunu_2(0,3);
-	A12[1]=coeff*Wmunu_2(1,2);
-	A33[1]=coeff*Wmunu_2(3,3);
-	
-	A00[2]=coeff*Wmunu_3(0,0)/2.;
-	A11[2]=coeff*Wmunu_3(1,1)/2.;
-	A03[2]=coeff*Wmunu_3(0,3)/2.;
-	A12[2]=coeff*Wmunu_3(1,2)/2.;
-	A33[2]=coeff*Wmunu_3(3,3)/2.;
+	A00[2]=coeffD*Wmunu_3(0,0);
+	A11[2]=coeffD*Wmunu_3(1,1);
+	A03[2]=coeffD*Wmunu_3(0,3);
+	A12[2]=coeffD*Wmunu_3(1,2);
+	A33[2]=coeffD*Wmunu_3(3,3);
 }
-
-
-
 
 
 
@@ -458,6 +482,57 @@ double DUR (double q0, double dq, double pf1, double pf2){
 
 
 
+//Direct (pzeta) and crossed (pzetap) Delta-hole functions of delta_lind for the Fermi momentum k_fermi
+static void delta_zetas(std::complex<double> q_zero, double q_mod, double k_fermi, std::complex<double>& pzeta, std::complex<double>& pzetap) {
+	std::complex<double> z, zp, i=std::complex<double>(0,1);
+	double fdel_f = fstar;
+	double rq_zero, s, sp,srot, srotp, qcm, qcmp;
+	double md=6.2433, m=4.7592, mpi=0.7045;
+	double wr = md-m;
+	double gamma = 0.;
+	double gammap = 0.;
+	if(pow(q_zero.imag(),2)<1e-36){
+		rq_zero = q_zero.real();
+		s = m*m+pow(rq_zero,2)-pow(q_mod,2)+  2.*rq_zero *sqrt(m*m+3./5.*pow(k_fermi,2));
+		if(s>pow(m+mpi,2)){
+			srot = sqrt(s);
+			qcm = sqrt(s*s+pow(mpi,4)+pow(m,4)-2.*(s*mpi*mpi+s*m*m+ pow(mpi*m,2))) /(2.*srot);
+			gamma = 1./3. * 1./(4.*M_PI) * pow(fdel_f,2)*pow(qcm,3)/srot*(m+sqrt(m*m+qcm*qcm))/pow(mpi,2);
+		}
+		sp = m*m+pow(rq_zero,2)-pow(q_mod,2)- 2.*rq_zero *sqrt(m*m+3./5.*pow(k_fermi,2));
+		if(sp>pow(m+mpi,2)){
+			srotp = sqrt(sp);
+			qcmp=sqrt(sp*sp+pow(mpi,4)+pow(m,4)-2.*(sp*pow(mpi,2)+sp*m*m+pow(mpi*m,2)))/(2.*srotp);
+			gammap = 1./3. * 1./(4.*M_PI) * pow(fdel_f,2)* pow(qcmp,3)/srotp*(m+sqrt(m*m+qcmp*qcmp))/pow(mpi,2);
+		}
+	}
+	
+	z=md/(q_mod*k_fermi)*(q_zero-pow(q_mod,2)/(2.*md) -wr +i*gamma/2.);
+	
+	zp=md/(q_mod*k_fermi)*(-q_zero-pow(q_mod,2)/(2.*md)-wr +i*gammap/2.);
+	
+	if(sqrt(pow(z.real(),2)+pow(z.imag(),2))>50.){
+		pzeta =  2./(3.*z) +2./(15.*pow(z,3));
+	}
+	else if(sqrt(pow(z.real(),2)+pow(z.imag(),2))<1e-2){
+		pzeta =  2.*z -2./3.*pow(z,3) -i*M_PI/2.*(1. - pow(z,2));
+	}
+	else
+	pzeta =  z +  (1.-z*z) * log((z+1.)/(z-1.))/2.;
+	
+	
+	if(sqrt(pow(zp.real(),2)+pow(zp.imag(),2))>50.)
+	pzetap =  2./(3.*zp) +2./(15.*pow(zp,3));
+	else if(sqrt(pow(zp.real(),2)+pow(zp.imag(),2))<1e-2)
+	pzetap =  2.*zp -2./3.*pow(zp,3) -i*M_PI/2.*(1. - pow(zp,2));
+	else
+	pzetap =  zp + (1.-pow(zp,2)) * log((zp+1.)/(zp-1.))/2.;
+	
+	
+	
+}
+
+
 std::complex<double> delta_lind (std::complex<double> q_zero,double q_mod, double rho,double k_fermi) {
 	/*
 	 cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -508,53 +583,138 @@ std::complex<double> delta_lind (std::complex<double> q_zero,double q_mod, doubl
 	 c
 	 */
 	
-	std::complex<double> z, zp, pzeta, pzetap, i=std::complex<double>(0,1);
+	std::complex<double> pzeta, pzetap;
+	delta_zetas(q_zero, q_mod, k_fermi, pzeta, pzetap);
 	double fdel_f = fstar;
-	double rq_zero, s, sp,srot, srotp, qcm, qcmp;
-	double md=6.2433, m=4.7592, mpi=0.7045;
-	double wr = md-m;
-	double gamma = 0.;
-	double gammap = 0.;
-	if(pow(q_zero.imag(),2)<1e-36){
-		rq_zero = q_zero.real();
-		s = m*m+pow(rq_zero,2)-pow(q_mod,2)+  2.*rq_zero *sqrt(m*m+3./5.*pow(k_fermi,2));
-		if(s>pow(m+mpi,2)){
-			srot = sqrt(s);
-			qcm = sqrt(s*s+pow(mpi,4)+pow(m,4)-2.*(s*mpi*mpi+s*m*m+ pow(mpi*m,2))) /(2.*srot);
-			gamma = 1./3. * 1./(4.*M_PI) * pow(fdel_f,2)*pow(qcm,3)/srot*(m+sqrt(m*m+qcm*qcm))/pow(mpi,2);
-		}
-		sp = m*m+pow(rq_zero,2)-pow(q_mod,2)- 2.*rq_zero *sqrt(m*m+3./5.*pow(k_fermi,2));
-		if(sp>pow(m+mpi,2)){
-			srotp = sqrt(sp);
-			qcmp=sqrt(sp*sp+pow(mpi,4)+pow(m,4)-2.*(sp*pow(mpi,2)+sp*m*m+pow(mpi*m,2)))/(2.*srotp);
-			gammap = 1./3. * 1./(4.*M_PI) * pow(fdel_f,2)* pow(qcmp,3)/srotp*(m+sqrt(m*m+qcmp*qcmp))/pow(mpi,2);
-		}
-	}
-	
-	z=md/(q_mod*k_fermi)*(q_zero-pow(q_mod,2)/(2.*md) -wr +i*gamma/2.);
-	
-	zp=md/(q_mod*k_fermi)*(-q_zero-pow(q_mod,2)/(2.*md)-wr +i*gammap/2.);
-	
-	if(sqrt(pow(z.real(),2)+pow(z.imag(),2))>50.){
-		pzeta =  2./(3.*z) +2./(15.*pow(z,3));
-	}
-	else if(sqrt(pow(z.real(),2)+pow(z.imag(),2))<1e-2){
-		pzeta =  2.*z -2./3.*pow(z,3) -i*M_PI/2.*(1. - pow(z,2));
-	}
-	else
-	pzeta =  z +  (1.-z*z) * log((z+1.)/(z-1.))/2.;
-	
-	
-	if(sqrt(pow(zp.real(),2)+pow(zp.imag(),2))>50.)
-	pzetap =  2./(3.*zp) +2./(15.*pow(zp,3));
-	else if(sqrt(pow(zp.real(),2)+pow(zp.imag(),2))<1e-2)
-	pzetap =  2.*zp -2./3.*pow(zp,3) -i*M_PI/2.*(1. - pow(zp,2));
-	else
-	pzetap =  zp + (1.-pow(zp,2)) * log((zp+1.)/(zp-1.))/2.;
-	
-	
+	double md=6.2433;
 	
 	return 2./3. * rho * md/(q_mod*k_fermi) * (pzeta +pzetap) * pow(fdel_f,2);
 	
 	
+}
+
+
+/**********************
+ 
+ 
+ PION DRESSING IN ASYMMETRIC NUCLEI
+ 
+ 
+ **********************/
+
+//Crossed part of the nonrelativistic nucleon-hole Lindhard function of ulind (same normalisation: sum over spin and
+//isospin, units of mpi) for the Fermi momentum XKF. ulind(XKF) = direct(XKF) + crossed(XKF). The sum
+//direct(kF_hole)+crossed(kF_part) is the bubble of a hole sea kF_hole and a particle sea kF_part:
+//the terms with both states occupied cancel between the direct and the crossed diagram.
+std::complex<double> ulind_crossed(double QZR, double Q, double XKF) {
+    double XMN=M/mpi;
+    double FNS=1.;
+    if (Q==0. || XKF<=0.) return std::complex<double>(0.,0.);
+    
+    double QA=Q/XKF;
+    double QZ=std::abs(QZR);
+    double QZA=std::abs(QZ*XMN/(XKF*XKF));
+    double AP=QZA/QA+QA/2.;
+    if (std::abs(1.-AP)<0.00001) AP=1.00001;
+    
+    double c=FNS*XMN*XKF/(M_PI*M_PI);
+    double re;
+    if (std::abs(AP)>10.) re=-c/QA*(2./(3.*AP)+2./(15.*pow(AP,3))+2./(35.*pow(AP,5)));
+    else re=c*(-AP/QA-(1.-AP*AP)/(2.*QA)*std::log(std::abs((1.+AP)/(1.-AP))+1.e-15));
+    
+    double im=0.;
+    if (QZA>0. && AP<1.) im=2.*XMN*XKF*FNS/(4.*M_PI*QA)*(1.-AP*AP);
+    return std::complex<double>(re,im);
+}
+
+//Direct and crossed parts of delta_lind (it is their sum), with the same arguments
+void delta_lind_pieces(std::complex<double> q_zero,double q_mod, double rho,double k_fermi, std::complex<double>& direct, std::complex<double>& crossed) {
+    std::complex<double> pzeta, pzetap;
+    delta_zetas(q_zero, q_mod, k_fermi, pzeta, pzetap);
+    double fdel_f = fstar;
+    double md=6.2433;
+    direct  = 2./3. * rho * md/(q_mod*k_fermi) * pzeta * pow(fdel_f,2);
+    crossed = 2./3. * rho * md/(q_mod*k_fermi) * pzetap * pow(fdel_f,2);
+}
+
+/**
+ * Nucleon-hole and Delta-hole Lindhard functions of the pion absorbed in the one-body diagrams, for its charge.
+ * The nucleon-hole bubble of a charged pion is 2*(g=2 Lindhard function): isospin factor 2 of tau_+- times the bubble
+ * with the hole sea of the nucleon that absorbs it and the particle sea of the nucleon it becomes. The pi0 is absorbed
+ * in a pp or a nn bubble with isospin factor 1. The Delta-hole function weights the species with the squared
+ * Clebsch-Gordan coefficients of N pi -> Delta; the crossed term has the weights of the opposite charge.
+ * For Z=N all of them reduce to the isospin-averaged cunuc and udel that were used before.
+ */
+void pion_bubbles(const FermiGas& fg, double Epi, double kk, PionBubbles& pb, bool withDelta) {
+    std::complex<double> cunuc(0.,0.), udel(0.,0.), dummy(0.,0.);
+    
+    if (fg.kF_p==fg.kF_n) {
+        ulind(Epi/mpi, kk/mpi, fg.kF/mpi, cunuc, dummy);
+        cunuc*=pow(mpi,2);
+        if (withDelta) {
+            udel=delta_lind (Epi*fermi,kk*fermi, fg.rho*fermi3, fg.kF*fermi);
+            udel/=(fermi*fermi);
+        }
+        pb.N_ch=pb.N_0=cunuc;
+        pb.D_ch=pb.D_0=udel;
+        pb.N_0abs[PROT]=pb.N_0abs[NEUT]=cunuc*0.5;
+        return;
+    }
+    
+    const double kF[2]={fg.kF_p, fg.kF_n};
+    const double rho_s[2]={fg.rho_p, fg.rho_n};
+    
+    //nucleon-hole Lindhard functions and their crossed parts for each species
+    std::complex<double> U[2], C[2];
+    for (int sp=0; sp<2; sp++) {
+        if (kF[sp]<=0.) { U[sp]=C[sp]=0.; continue; }
+        ulind(Epi/mpi, kk/mpi, kF[sp]/mpi, U[sp], dummy);
+        U[sp]*=pow(mpi,2);
+        C[sp]=ulind_crossed(Epi/mpi, kk/mpi, kF[sp]/mpi)*pow(mpi,2);
+    }
+    //charged pion of the one-body diagrams: pi+ (n -> p) for neutrinos, pi- (p -> n) for antineutrinos
+    BubbleSpecies ch=bubble_species(NEUT,PROT);
+    //With FERMI the species potentials are such that the Fermi energies of p and n coincide: a charge-exchange bubble
+    //(hole of species h, particle of species p) is evaluated at the energy w - (V_p - V_h) = w - (kF_h^2 - kF_p^2)/2M.
+    //The crossed term is the same function at -w, so it takes the same shift. Without FERMI there are no potentials.
+    const double dV = FERMI ? (kF[ch.hole]*kF[ch.hole]-kF[ch.part]*kF[ch.part])/2./M : 0.;
+    if (dV==0.) {
+        pb.N_ch = U[ch.hole] - C[ch.hole] + C[ch.part];
+    } else {
+        //ulind and ulind_crossed take |w|. The bubble is A_h(w)+A_p(-w) with A_k(w) = direct, A_k(-w) = crossed (U = A(w)+A(-w)), so
+        //for a negative shifted energy the roles of direct and crossed are exchanged: A_h(-|w|)+A_p(|w|) = C_h(|w|) + U_p(|w|) - C_p(|w|)
+        const double Eeff=Epi-dV;
+        const double e=std::abs(Eeff);
+        auto Uk=[&](int sp){ std::complex<double> u(0.,0.); if (kF[sp]>0.) { ulind(e/mpi, kk/mpi, kF[sp]/mpi, u, dummy); u*=pow(mpi,2); } return u; };
+        auto Ck=[&](int sp){ return kF[sp]>0. ? ulind_crossed(e/mpi, kk/mpi, kF[sp]/mpi)*pow(mpi,2) : std::complex<double>(0.,0.); };
+        if (Eeff>=0.) pb.N_ch = Uk(ch.hole) - Ck(ch.hole) + Ck(ch.part);
+        else          pb.N_ch = std::conj(Ck(ch.hole) + Uk(ch.part) - Ck(ch.part)); //the Im part of the |w| functions has the sign of w>0: Re is unchanged, Im flips (checked against numerical integration)
+    }
+    //Without the shift (FERMI off) the Fermi energies of p and n differ, and the direct+crossed form also contains
+    //the emission p <-> n of the pion by the Fermi sea with the higher Fermi energy (e.g. n -> p pi- in a neutron-rich
+    //nucleus). That is not an absorption: keep the Im part (absorption) negative.
+    if (pb.N_ch.imag()>0.) pb.N_ch=std::complex<double>(pb.N_ch.real(),0.);
+    pb.N_0abs[PROT]=U[PROT]*0.5;
+    pb.N_0abs[NEUT]=U[NEUT]*0.5;
+    pb.N_0=pb.N_0abs[PROT]+pb.N_0abs[NEUT];
+    
+    pb.D_ch=pb.D_0=std::complex<double>(0.,0.);
+    if (!withDelta) return;
+    
+    //species pieces of the Delta-hole function, normalised so that the two species add up to delta_lind at Z=N
+    std::complex<double> dir[2], cro[2];
+    for (int sp=0; sp<2; sp++) {
+        if (kF[sp]<=0.) { dir[sp]=cro[sp]=0.; continue; }
+        delta_lind_pieces(Epi*fermi, kk*fermi, 2.*rho_s[sp]*fermi3, kF[sp]*fermi, dir[sp], cro[sp]);
+        dir[sp]/=(fermi*fermi);
+        cro[sp]/=(fermi*fermi);
+    }
+    //weights (fractions of 4/3) of the direct and crossed term of pi+, pi0, pi- on (p, n)
+    const double wdir[3][2]={{3./4.,1./4.},{1./2.,1./2.},{1./4.,3./4.}};
+    const double wcro[3][2]={{1./4.,3./4.},{1./2.,1./2.},{3./4.,1./4.}};
+    int ic = CH_2p2h==CCanti ? 2 : 0;
+    for (int sp=0; sp<2; sp++) {
+        pb.D_ch += wdir[ic][sp]*dir[sp] + wcro[ic][sp]*cro[sp];
+        pb.D_0  += wdir[1][sp]*dir[sp]  + wcro[1][sp]*cro[sp];
+    }
 }

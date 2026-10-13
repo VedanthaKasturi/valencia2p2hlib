@@ -2,6 +2,12 @@
 #include <TH1D.h>
 #include "2p2h_MC.h"
 
+// Sum of all isospin-channel weights of an event: pp, np, pn for neutrinos and nn, pn, np for antineutrinos
+// (the weights of the other current are zero).
+static double total_weight(const event* e) {
+	return e->weight_pp + e->weight_np + e->weight_pn + e->weight_anti_nn + e->weight_anti_pn + e->weight_anti_np;
+}
+
 
 /**********************
  
@@ -23,11 +29,10 @@ void saveEvents_2p2h(double Ein, std::string name, int nr, nucleus_str* nuc) {
 	 * In the case of global Fermi gas, you have the same density for all the nucleus and hence the same Fermi momentum
 	 * The two lines below only apply in the GFG case. Otherwise, we regenerate them every event in the LFG case
 	 */
-	double rho = getRho(0, nuc,true)/fermi3+getRho(0, nuc,false)/fermi3; //for GFG this will be constant
-	double k_fermi = pow(3*M_PI*M_PI*rho/2., 1./3.);
+	FermiGas fg = local_fermi_gas(0, nuc); //for GFG this is constant, for LFG it is regenerated every event
+	double rho = fg.rho;
+	double k_fermi = fg.kF;
 	
-	std::complex<double> cunuc(0.,0.);  // NUCLEAR?
-	std::complex<double> udel(0.,0.);  // DELTA?
 	
 	int i = 0;
     long long n_throws = 0;
@@ -57,8 +62,9 @@ void saveEvents_2p2h(double Ein, std::string name, int nr, nucleus_str* nuc) {
              * This is the Radial dependency of LFG. This is our 1st variable to integrate over
              */
 			r = nuc->rmax*frandom(); //generate a point in nucleus with radius r
-			rho = getRho(r, nuc,true)/fermi3+getRho(r, nuc,false)/fermi3; //get the density at this point as the sum of the proton and neutron densities
-			k_fermi = pow(3*M_PI*M_PI*rho/2., 1./3.); //get the Fermi momentum at this point
+			fg = local_fermi_gas(r, nuc);
+			rho = fg.rho;
+			k_fermi = fg.kF;
 		}
 		
         double corr_in_medium = nuc->Q_2p2h; //energy needed to remove the nucleus from the Fermi sea
@@ -85,7 +91,7 @@ void saveEvents_2p2h(double Ein, std::string name, int nr, nucleus_str* nuc) {
 		/**
 		 * Generate the Four momentum of the pion. This is our 5th, 6th, 7th and 8th variables to integrate over
 		 */
-		kk = (qq+3*k_fermi)*frandom();
+		kk = (qq+3*fg.kF_max)*frandom();
 		phi_pi = 2*M_PI*frandom();
 		thetapi=M_PI*frandom();
 		Epi = w*frandom();
@@ -93,12 +99,13 @@ void saveEvents_2p2h(double Ein, std::string name, int nr, nucleus_str* nuc) {
 		/**
 		 * This is the Lindhard function. This calculates the screening of the pion in the nucleus?
 		 */
-		ulind(Epi/mpi, kk/mpi, k_fermi/mpi,cunuc, udel);
-		cunuc*=pow(mpi,2);
+		PionBubbles pion_b;
+		pion_bubbles(fg, Epi, kk, pion_b, false); //second bubble: Lindhard functions of the pion, for its charge
+		bool pion_open = pion_bubbles_open(pion_b, pow(10,-20));
 		
-		if (std::abs(cunuc.imag())<pow(10,-20)) result_zero=true; //if the pion cannot produce 1p1h (second bubble)
+		if (!pion_open) result_zero=true; //if the pion cannot produce 1p1h (second bubble)
 		
-		if (!(qq<w) && (qq>1.2*GeV) && !(std::abs(cunuc.imag())<pow(10,-20))) aaaa++;
+		if (!(qq<w) && (qq>1.2*GeV) && pion_open) aaaa++;
 
         /**
          * We have to now calculate the kinematic variables to apply some cuts on what events are processed. We only calculate valid kimematic events to save time
@@ -108,20 +115,19 @@ void saveEvents_2p2h(double Ein, std::string name, int nr, nucleus_str* nuc) {
 		double kPi2 = kk*sqrt(1-cosi*cosi)*sin(phi_pi);
 		double kPi3 = kk*cosi;
 		
-		double lindhard = DUR(w-Epi, sqrt(pow(kPi1,2)+pow(kPi2,2)+pow(kPi3-qq,2)),k_fermi, k_fermi);
 		double q_minus_k=sqrt(pow(kPi1,2)+pow(kPi2,2)+pow(kPi3-qq,2));
-		if (std::abs(lindhard)<pow(10,-20)) result_zero_lind = true;
-		
-		double Emax=sqrt(M*M+k_fermi*k_fermi);
-		double pom = std::max(M,Emax-(w-Epi));
-        double Emin=std::max(pom, 0.5*(-(w-Epi)+q_minus_k*sqrt(1.-4.*M*M/((w-Epi)*(w-Epi)-q_minus_k*q_minus_k))));
+		BubbleBox box_1 = bubble_box(fg, w-Epi, q_minus_k, true); //hole-energy range of the first bubble: union over the isospin channels
+		double lindhard = box_1.lindhard;
+		if (!box_1.any) result_zero_lind = true;
+		double Emax=box_1.hi;
+		double Emin=box_1.lo;
 		
         if (Emin>Emax) result_zero= true;
         
         if (Emin>Emax and result_zero_lind==false) std::cerr<<"Wrong energy "<<Emax<<" "<<Emin<<"\n";
-        double Emax_2 = sqrt(M*M+k_fermi*k_fermi);
-        double pom_2 = std::max(M,Emax_2-Epi);
-        double Emin_2 = std::max(pom_2, 0.5*(-(Epi)+kk*sqrt(1.-4.*M*M/(Epi*Epi-kk*kk))));
+        BubbleBox box_2 = bubble_box(fg, Epi, kk, false); //hole-energy range of the second bubble: union over the isospin channels
+        double Emax_2 = box_2.hi;
+        double Emin_2 = box_2.lo;
 
         /**
          * We generate the energy of the 2nd nucleon. This is our 9th variable to integrate over
@@ -166,7 +172,7 @@ void saveEvents_2p2h(double Ein, std::string name, int nr, nucleus_str* nuc) {
          */
 
 		
-		if (!result_zero && !result_zero_lind) event_2p2h_rho_gaussian(r, Ein, theta_lepton, Ep2, Ep, phi_p, kk, phi_pi, thetapi, Epi, w, qq, rho, 1, Emax_2-Emin_2, e, nuc,corr_in_medium);
+		if (!result_zero && !result_zero_lind) event_2p2h_rho_gaussian(r, Ein, theta_lepton, Ep2, Ep, phi_p, kk, phi_pi, thetapi, Epi, w, qq, fg, 1, Emax_2-Emin_2, e, nuc,corr_in_medium);
 		else {
 			e->weight_pp=0;
 			e->weight_np=0;
@@ -179,7 +185,7 @@ void saveEvents_2p2h(double Ein, std::string name, int nr, nucleus_str* nuc) {
         /**
          * Calculate the integral volume of this event. This will contain the Jacobian of the transformation of variables and the range of integration
          */
-		double coeff = w*sin(theta_lepton)*(Emax-Emin)*(qq+3*k_fermi)*(Ein-lepton_mass-corr_in_medium)*Pi*2*Pi*2*Pi*Pi;
+		double coeff = w*sin(theta_lepton)*(Emax-Emin)*(qq+3*fg.kF_max)*(Ein-lepton_mass-corr_in_medium)*Pi*2*Pi*2*Pi*Pi;
         //        | E_pi|     theta_mu    |    EN1    |  P_pi        |           E_mu                 |theta_pi| phiN1 | Phi_pi | theta_mu(its pi*sin(theta_lepton))
 
 
@@ -188,7 +194,7 @@ void saveEvents_2p2h(double Ein, std::string name, int nr, nucleus_str* nuc) {
         e->int_vol_E_pi = w;
         e->int_vol_theta_lepton = sin(theta_lepton)*Pi;
         e->int_vol_E_nuc = (Emax-Emin);
-        e->int_vol_p_pi = (qq+3*k_fermi);
+        e->int_vol_p_pi = (qq+3*fg.kF_max);
         e->int_vol_phi_nuc = 2*Pi;
         e->int_vol_E_nuc2 = Emax_2-Emin_2;
         e->int_vol_E_lepton = Ein-lepton_mass-corr_in_medium;
@@ -200,15 +206,19 @@ void saveEvents_2p2h(double Ein, std::string name, int nr, nucleus_str* nuc) {
 		e->weight_pp *=coeff ;//range of integration
 		e->weight_np *=coeff;
 		e->weight_pn*=coeff;
+		e->weight_anti_nn *= coeff;
+		e->weight_anti_pn *= coeff;
+		e->weight_anti_np *= coeff;
 		
 
         
-        if ((e->weight_pp+e->weight_np+e->weight_pn)!=0) {
+        if (total_weight(e)!=0) {
             tf->Fill(); //we do not include 0
             i++;
 
         }
 		
+		total_xsec += total_weight(e); //before delete e
 		delete e;
 		result_zero=false;
 		result_zero_lind=false;
@@ -216,7 +226,6 @@ void saveEvents_2p2h(double Ein, std::string name, int nr, nucleus_str* nuc) {
 		if (i*10./nr_events == counter) {std::cerr<<"* "; counter++;}
 
 		
-		total_xsec+=(e->weight_pp+e->weight_np+e->weight_pn);
         n_throws++;
 
 		
@@ -242,8 +251,9 @@ void saveEvents_2p2h(double Ein, std::string name, int nr, nucleus_str* nuc) {
 }
 
 
-void event_2p2h_rho_gaussian(double r, double Ein, double theta_lepton, double Ep2, double Ep, double phi_p, double kk, double phi_pi, double thetapi, double Epi, double w, double qq, double rho, double cos_theta_nuc, double E_range, event* e, nucleus_str* nuc, double corr_in_medium)
+void event_2p2h_rho_gaussian(double r, double Ein, double theta_lepton, double Ep2, double Ep, double phi_p, double kk, double phi_pi, double thetapi, double Epi, double w, double qq, const FermiGas& fg, double cos_theta_nuc, double E_range, event* e, nucleus_str* nuc, double corr_in_medium)
 {
+	const double rho = fg.rho;
 	
 	init_deltaFF(-w*w+qq*qq,w);
 	
@@ -272,15 +282,15 @@ void event_2p2h_rho_gaussian(double r, double Ein, double theta_lepton, double E
 	/**
 	 * Rho Transversal component
 	 */
-    hadron_2p2h_rho_Epi_thetapi_phipi_kpi_phip_Ep_isospin(Ep, phi_p, kk, phi_pi, thetapi, Epi, qq, w, rho, axial_nuc, vector_nuc, scalar_nuc, A00, A11, A12, A03, A33);
+    hadron_2p2h_rho_Epi_thetapi_phipi_kpi_phip_Ep_isospin(Ep, phi_p, kk, phi_pi, thetapi, Epi, qq, w, fg, axial_nuc, vector_nuc, scalar_nuc, A00, A11, A12, A03, A33);
     /**
      * Pion Longitudinal component
      */
-    hadron_2p2h_part1_Epi_thetapi_phipi_kpi_phip_Ep_isospin(Ep, phi_p, kk, phi_pi, thetapi, Epi, qq, w, rho, axial_nuc, vector_nuc, scalar_nuc, B00, B11, B12, B03, B33);
+    hadron_2p2h_part1_Epi_thetapi_phipi_kpi_phip_Ep_isospin(Ep, phi_p, kk, phi_pi, thetapi, Epi, qq, w, fg, axial_nuc, vector_nuc, scalar_nuc, B00, B11, B12, B03, B33);
     /**
      * This is the Interference term. Its small but has the influence on negative weights. This needs to be studied in particular
      */
-    hadron_2p2h_part2_Epi_thetapi_phipi_kpi_E1_E2_isospin(Ep2, Ep, phi_p, kk, phi_pi, thetapi, Epi, qq, w, rho, axial_nuc, vector_nuc, scalar_nuc, C00, C11, C12, C03, C33);
+    hadron_2p2h_part2_Epi_thetapi_phipi_kpi_E1_E2_isospin(Ep2, Ep, phi_p, kk, phi_pi, thetapi, Epi, qq, w, fg, axial_nuc, vector_nuc, scalar_nuc, C00, C11, C12, C03, C33);
     for (int i=0; i<3; i++) {
         C00[i]*=E_range/(2*M_PI); //because in this case we don't integrate over phi_nuc but instead over Ep_2
         C11[i]*=E_range/(2*M_PI);
@@ -430,11 +440,10 @@ void total_xsec_2p2h(double Ein, int nr, nucleus_str* nuc, double& total_xsec) {
 	total_xsec = 0;
 
 	double weight=0;
-	double rho = getRho(0, nuc,true)/fermi3+getRho(0, nuc,false)/fermi3;
-	double k_fermi = pow(3*M_PI*M_PI*rho/2., 1./3.);
+	FermiGas fg = local_fermi_gas(0, nuc); //for GFG this is constant, for LFG it is regenerated every event
+	double rho = fg.rho;
+	double k_fermi = fg.kF;
 	
-	std::complex<double> cunuc(0.,0.);
-	std::complex<double> udel(0.,0.);
 	
 	int i = 0;
 	int nr_events=nr*1000000;
@@ -451,8 +460,9 @@ void total_xsec_2p2h(double Ein, int nr, nucleus_str* nuc, double& total_xsec) {
 		
 		if (!Global) {
 			r = nuc->rmax*frandom();
-			rho = getRho(r, nuc,true)/fermi3+getRho(r, nuc,false)/fermi3;
-			k_fermi = pow(3*M_PI*M_PI*rho/2., 1./3.);
+			fg = local_fermi_gas(r, nuc);
+			rho = fg.rho;
+			k_fermi = fg.kF;
 		}
 		
         double corr_in_medium = nuc->Q_2p2h;
@@ -469,20 +479,21 @@ void total_xsec_2p2h(double Ein, int nr, nucleus_str* nuc, double& total_xsec) {
 		if (qq>1.2*GeV) result_zero=true;
 		
 		phi_p = 2*M_PI*frandom();
-		kk = (qq+3*k_fermi)*frandom();
+		kk = (qq+3*fg.kF_max)*frandom();
 		phi_pi = 2*M_PI*frandom();
 		thetapi=M_PI*frandom();
 		Epi = w*frandom();
 		
 		
-        ulind(Epi/mpi, kk/mpi, k_fermi/mpi,cunuc, udel);
-		cunuc*=pow(mpi,2);
+        PionBubbles pion_b;
+        pion_bubbles(fg, Epi, kk, pion_b, false); //second bubble: Lindhard functions of the pion, for its charge
+        bool pion_open = pion_bubbles_open(pion_b, pow(10,-20));
 		
-		if (std::abs(cunuc.imag())<pow(10,-20)) result_zero=true;
+		if (!pion_open) result_zero=true;
 		
-		double Emax_2 = sqrt(M*M+k_fermi*k_fermi);
-		double pom_2 = std::max(M,Emax_2-Epi);
-		double Emin_2 = std::max(pom_2, 0.5*(-(Epi)+kk*sqrt(1.-4.*M*M/(Epi*Epi-kk*kk))));
+		BubbleBox box_2 = bubble_box(fg, Epi, kk, false); //hole-energy range of the second bubble: union over the isospin channels
+		double Emax_2 = box_2.hi;
+		double Emin_2 = box_2.lo;
 		
 		Ep2 =  Emin_2+(Emax_2-Emin_2)*frandom();
 		
@@ -491,13 +502,11 @@ void total_xsec_2p2h(double Ein, int nr, nucleus_str* nuc, double& total_xsec) {
 		double kPi2 = kk*sqrt(1-cosi*cosi)*sin(phi_pi);
 		double kPi3 = kk*cosi;
 		
-		double lindhard = DUR(w-Epi, sqrt(pow(kPi1,2)+pow(kPi2,2)+pow(kPi3-qq,2)),k_fermi, k_fermi);
 		double q_minus_k=sqrt(pow(kPi1,2)+pow(kPi2,2)+pow(kPi3-qq,2));
-		if (std::abs(lindhard)<pow(10,-20)) result_zero = true;
-		
-		double Emax=sqrt(M*M+k_fermi*k_fermi);
-		double pom = std::max(M,Emax-(w-Epi));
-		double Emin=std::max(pom, 0.5*(-(w-Epi)+q_minus_k*sqrt(1.-4.*M*M/((w-Epi)*(w-Epi)-q_minus_k*q_minus_k))));
+		BubbleBox box_1 = bubble_box(fg, w-Epi, q_minus_k, true); //hole-energy range of the first bubble: union over the isospin channels
+		if (!box_1.any) result_zero = true;
+		double Emax=box_1.hi;
+		double Emin=box_1.lo;
 		
 		Ep =Emin+(Emax-Emin)*frandom();
         
@@ -506,10 +515,10 @@ void total_xsec_2p2h(double Ein, int nr, nucleus_str* nuc, double& total_xsec) {
         
 		weight=0;
         
-		if (!result_zero)  MCpoint_2p2h_gaussian(r, Ein, theta_lepton, Ep2, Ep, phi_p, kk, phi_pi, thetapi, Epi, w, qq, rho, 1, Emax_2-Emin_2, weight,nuc,corr_in_medium);
+		if (!result_zero)  MCpoint_2p2h_gaussian(r, Ein, theta_lepton, Ep2, Ep, phi_p, kk, phi_pi, thetapi, Epi, w, qq, fg, 1, Emax_2-Emin_2, weight,nuc,corr_in_medium);
 
 				
-		double coeff = w*sin(theta_lepton)*(Emax-Emin)*(qq+3*k_fermi)*(Ein-lepton_mass-corr_in_medium)*Pi*2*Pi*2*Pi*Pi;
+		double coeff = w*sin(theta_lepton)*(Emax-Emin)*(qq+3*fg.kF_max)*(Ein-lepton_mass-corr_in_medium)*Pi*2*Pi*2*Pi*Pi;
 		
 		if (!Global) coeff*=nuc->rmax;
 		
@@ -536,8 +545,9 @@ void total_xsec_2p2h(double Ein, int nr, nucleus_str* nuc, double& total_xsec) {
     
 
 
-void MCpoint_2p2h_gaussian(double r, double Ein, double theta_lepton, double Ep2, double Ep, double phi_p, double kk, double phi_pi, double thetapi, double Epi, double w, double qq, double rho, double cos_theta_nuc, double E_range, double& weight, nucleus_str* nuc, double corr_in_medium)
+void MCpoint_2p2h_gaussian(double r, double Ein, double theta_lepton, double Ep2, double Ep, double phi_p, double kk, double phi_pi, double thetapi, double Epi, double w, double qq, const FermiGas& fg, double cos_theta_nuc, double E_range, double& weight, nucleus_str* nuc, double corr_in_medium)
 {
+	const double rho = fg.rho;
 	
 	init_deltaFF(-w*w+qq*qq,w);
 	
@@ -557,9 +567,9 @@ void MCpoint_2p2h_gaussian(double r, double Ein, double theta_lepton, double Ep2
 		
 	}
 	
-    hadron_2p2h_rho_Epi_thetapi_phipi_kpi_phip_Ep_isospin(Ep, phi_p, kk, phi_pi, thetapi, Epi, qq, w, rho, axial_nuc, vector_nuc, scalar_nuc, A00, A11, A12, A03, A33);
-    hadron_2p2h_part1_Epi_thetapi_phipi_kpi_phip_Ep_isospin(Ep, phi_p, kk, phi_pi, thetapi, Epi, qq, w, rho, axial_nuc, vector_nuc, scalar_nuc, B00, B11, B12, B03, B33);
-    hadron_2p2h_part2_Epi_thetapi_phipi_kpi_E1_E2_isospin(Ep2, Ep, phi_p, kk, phi_pi, thetapi, Epi, qq, w, rho, axial_nuc, vector_nuc, scalar_nuc, C00, C11, C12, C03, C33);
+    hadron_2p2h_rho_Epi_thetapi_phipi_kpi_phip_Ep_isospin(Ep, phi_p, kk, phi_pi, thetapi, Epi, qq, w, fg, axial_nuc, vector_nuc, scalar_nuc, A00, A11, A12, A03, A33);
+    hadron_2p2h_part1_Epi_thetapi_phipi_kpi_phip_Ep_isospin(Ep, phi_p, kk, phi_pi, thetapi, Epi, qq, w, fg, axial_nuc, vector_nuc, scalar_nuc, B00, B11, B12, B03, B33);
+    hadron_2p2h_part2_Epi_thetapi_phipi_kpi_E1_E2_isospin(Ep2, Ep, phi_p, kk, phi_pi, thetapi, Epi, qq, w, fg, axial_nuc, vector_nuc, scalar_nuc, C00, C11, C12, C03, C33);
     for (int i=0; i<3; i++) {
         C00[i]*=E_range/(2*M_PI); //because in this case we don't integrate over phi_nuc but instead over Ep_2
         C11[i]*=E_range/(2*M_PI);
@@ -632,11 +642,10 @@ void saveEvents_2p2h_variedEnergy(double Enu_low, double Enu_high, std::string n
     delete e;
     int aaaa=0;
 
-    double rho = getRho(0, nuc,true)/fermi3+getRho(0, nuc,false)/fermi3; //for GFG this will be constant
-    double k_fermi = pow(3*M_PI*M_PI*rho/2., 1./3.);
+    FermiGas fg = local_fermi_gas(0, nuc); //for GFG this is constant, for LFG it is regenerated every event
+    double rho = fg.rho;
+    double k_fermi = fg.kF;
 
-    std::complex<double> cunuc(0.,0.);
-    std::complex<double> udel(0.,0.);
 
     int i = 0;
     long long n_throws=0;
@@ -674,8 +683,9 @@ void saveEvents_2p2h_variedEnergy(double Enu_low, double Enu_high, std::string n
 
         if (!Global) {
             r = nuc->rmax*frandom(); //generate a point in nucleus
-            rho = getRho(r, nuc,true)/fermi3+getRho(r, nuc,false)/fermi3;
-            k_fermi = pow(3*M_PI*M_PI*rho/2., 1./3.);
+            fg = local_fermi_gas(r, nuc);
+            rho = fg.rho;
+            k_fermi = fg.kF;
         }
 
         double corr_in_medium = nuc->Q_2p2h;
@@ -693,38 +703,37 @@ void saveEvents_2p2h_variedEnergy(double Enu_low, double Enu_high, std::string n
 
         phi_p = 2*M_PI*frandom(); //generate the phi angle of the 1st initial nucleons
         //generate the 4-momentum of "pion" :
-        kk = (qq+3*k_fermi)*frandom();
+        kk = (qq+3*fg.kF_max)*frandom();
         phi_pi = 2*M_PI*frandom();
         thetapi=M_PI*frandom();
         Epi = w*frandom();
 
 
-        ulind(Epi/mpi, kk/mpi, k_fermi/mpi,cunuc, udel);
-        cunuc*=pow(mpi,2);
+        PionBubbles pion_b;
+        pion_bubbles(fg, Epi, kk, pion_b, false); //second bubble: Lindhard functions of the pion, for its charge
+        bool pion_open = pion_bubbles_open(pion_b, pow(10,-20));
 
-        if (std::abs(cunuc.imag())<pow(10,-20)) result_zero=true; //if the pion cannot produce 1p1h (second bubble)
+        if (!pion_open) result_zero=true; //if the pion cannot produce 1p1h (second bubble)
 
-        if (!(qq<w) && (qq>1.2*GeV) && !(std::abs(cunuc.imag())<pow(10,-20))) aaaa++;
+        if (!(qq<w) && (qq>1.2*GeV) && pion_open) aaaa++;
 
         double cosi=cos(thetapi);
         double kPi1=kk*sqrt(1-cosi*cosi)*cos(phi_pi);
         double kPi2 = kk*sqrt(1-cosi*cosi)*sin(phi_pi);
         double kPi3 = kk*cosi;
 
-        double lindhard = DUR(w-Epi, sqrt(pow(kPi1,2)+pow(kPi2,2)+pow(kPi3-qq,2)),k_fermi, k_fermi);
         double q_minus_k=sqrt(pow(kPi1,2)+pow(kPi2,2)+pow(kPi3-qq,2));
-        if (std::abs(lindhard)<pow(10,-20)) result_zero_lind = true;
-
-        double Emax=sqrt(M*M+k_fermi*k_fermi);
-        double pom = std::max(M,Emax-(w-Epi));
-        double Emin=std::max(pom, 0.5*(-(w-Epi)+q_minus_k*sqrt(1.-4.*M*M/((w-Epi)*(w-Epi)-q_minus_k*q_minus_k))));
+        BubbleBox box_1 = bubble_box(fg, w-Epi, q_minus_k, true); //hole-energy range of the first bubble: union over the isospin channels
+        if (!box_1.any) result_zero_lind = true;
+        double Emax=box_1.hi;
+        double Emin=box_1.lo;
 
         if (Emin>Emax) result_zero= true;
 
         if (Emin>Emax and result_zero_lind==false) std::cerr<<"Wrong energy "<<Emax<<" "<<Emin<<"\n";
-        double Emax_2 = sqrt(M*M+k_fermi*k_fermi);
-        double pom_2 = std::max(M,Emax_2-Epi);
-        double Emin_2 = std::max(pom_2, 0.5*(-(Epi)+kk*sqrt(1.-4.*M*M/(Epi*Epi-kk*kk))));
+        BubbleBox box_2 = bubble_box(fg, Epi, kk, false); //hole-energy range of the second bubble: union over the isospin channels
+        double Emax_2 = box_2.hi;
+        double Emin_2 = box_2.lo;
 
         Ep2 =  Emin_2+(Emax_2-Emin_2)*frandom(); //generate energy of the 2nd nucleon
         if (Emin_2>Emax_2) result_zero = true;
@@ -749,7 +758,7 @@ void saveEvents_2p2h_variedEnergy(double Enu_low, double Enu_high, std::string n
         e->E_nuc2 = Ep2;
         e->energy_neutrino = Ein;
 
-        if (!result_zero && !result_zero_lind) event_2p2h_rho_gaussian(r, Ein, theta_lepton, Ep2, Ep, phi_p, kk, phi_pi, thetapi, Epi, w, qq, rho, 1, Emax_2-Emin_2, e, nuc,corr_in_medium);
+        if (!result_zero && !result_zero_lind) event_2p2h_rho_gaussian(r, Ein, theta_lepton, Ep2, Ep, phi_p, kk, phi_pi, thetapi, Epi, w, qq, fg, 1, Emax_2-Emin_2, e, nuc,corr_in_medium);
         else {
             e->weight_pp=0;
             e->weight_np=0;
@@ -759,7 +768,7 @@ void saveEvents_2p2h_variedEnergy(double Enu_low, double Enu_high, std::string n
             e->weight_anti_np=0;
         }
 
-        double coeff = w*sin(theta_lepton)*(Emax-Emin)*(qq+3*k_fermi)*(Ein-lepton_mass-corr_in_medium)*Pi*2*Pi*2*Pi*Pi;
+        double coeff = w*sin(theta_lepton)*(Emax-Emin)*(qq+3*fg.kF_max)*(Ein-lepton_mass-corr_in_medium)*Pi*2*Pi*2*Pi*Pi;
 
         if (!Global) coeff*=nuc->rmax;
 
@@ -767,16 +776,20 @@ void saveEvents_2p2h_variedEnergy(double Enu_low, double Enu_high, std::string n
         e->weight_pp *=coeff ;//range of integration
         e->weight_np *=coeff;
         e->weight_pn*=coeff;
+        e->weight_anti_nn *= coeff;
+        e->weight_anti_pn *= coeff;
+        e->weight_anti_np *= coeff;
 
 
 
-        if ((e->weight_pp+e->weight_np+e->weight_pn)!=0) {
+        if (total_weight(e)!=0) {
             tf->Fill(); //we do not include 0
 
             if (i*10./nr_events == counter) {std::cerr<<"* "; counter++;}
             i++;
         }
 
+        total_xsec += total_weight(e); //before delete e
         delete e;
         result_zero=false;
         result_zero_lind=false;
@@ -784,7 +797,6 @@ void saveEvents_2p2h_variedEnergy(double Enu_low, double Enu_high, std::string n
         //        if (i*10./nr_events == counter) {std::cerr<<"* "; counter++;}
         //        i++;
         //
-        total_xsec+=(e->weight_pp+e->weight_np+e->weight_pn);
         n_throws++;
 
 
@@ -848,11 +860,10 @@ void saveEvents_2p2h_fluxWeighted(std::string flux_file, std::string flux_hist_n
     delete e;
     int aaaa = 0;
 
-    double rho = getRho(0, nuc,true)/fermi3 + getRho(0, nuc,false)/fermi3;
-    double k_fermi = pow(3*M_PI*M_PI*rho/2., 1./3.);
+    FermiGas fg = local_fermi_gas(0, nuc); //for GFG this is constant, for LFG it is regenerated every event
+    double rho = fg.rho;
+    double k_fermi = fg.kF;
 
-    std::complex<double> cunuc(0.,0.);
-    std::complex<double> udel(0.,0.);
 
     int i = 0;
     long long n_throws = 0;
@@ -882,8 +893,9 @@ void saveEvents_2p2h_fluxWeighted(std::string flux_file, std::string flux_hist_n
 
         if (!Global) {
             r = nuc->rmax * frandom();
-            rho = getRho(r, nuc,true)/fermi3 + getRho(r, nuc,false)/fermi3;
-            k_fermi = pow(3*M_PI*M_PI*rho/2., 1./3.);
+            fg = local_fermi_gas(r, nuc);
+            rho = fg.rho;
+            k_fermi = fg.kF;
         }
 
         double corr_in_medium = nuc->Q_2p2h;
@@ -899,36 +911,35 @@ void saveEvents_2p2h_fluxWeighted(std::string flux_file, std::string flux_hist_n
         if (qq>1.2*GeV) result_zero=true;
 
         phi_p = 2 * M_PI * frandom();
-        kk = (qq + 3 * k_fermi) * frandom();
+        kk = (qq+3*fg.kF_max) * frandom();
         phi_pi = 2 * M_PI * frandom();
         thetapi = M_PI * frandom();
         Epi = w * frandom();
 
-        ulind(Epi/mpi, kk/mpi, k_fermi/mpi, cunuc, udel);
-        cunuc *= pow(mpi, 2);
+        PionBubbles pion_b;
+        pion_bubbles(fg, Epi, kk, pion_b, false); //second bubble: Lindhard functions of the pion, for its charge
+        bool pion_open = pion_bubbles_open(pion_b, pow(10,-20));
 
-        if (std::abs(cunuc.imag()) < pow(10, -20)) result_zero = true;
+        if (!pion_open) result_zero = true;
 
-        if (!(qq<w) && (qq>1.2*GeV) && !(std::abs(cunuc.imag())<pow(10,-20))) aaaa++;
+        if (!(qq<w) && (qq>1.2*GeV) && pion_open) aaaa++;
 
         double cosi = cos(thetapi);
         double kPi1 = kk * sqrt(1 - cosi * cosi) * cos(phi_pi);
         double kPi2 = kk * sqrt(1 - cosi * cosi) * sin(phi_pi);
         double kPi3 = kk * cosi;
 
-        double lindhard = DUR(w - Epi, sqrt(pow(kPi1,2) + pow(kPi2,2) + pow(kPi3 - qq,2)), k_fermi, k_fermi);
         double q_minus_k = sqrt(pow(kPi1,2) + pow(kPi2,2) + pow(kPi3 - qq,2));
-        if (std::abs(lindhard) < pow(10, -20)) result_zero_lind = true;
-
-        double Emax = sqrt(M*M + k_fermi*k_fermi);
-        double pom = std::max(M, Emax - (w - Epi));
-        double Emin = std::max(pom, 0.5 * (-(w - Epi) + q_minus_k * sqrt(1. - 4. * M*M / ((w - Epi)*(w - Epi) - q_minus_k * q_minus_k))));
+        BubbleBox box_1 = bubble_box(fg, w-Epi, q_minus_k, true); //hole-energy range of the first bubble: union over the isospin channels
+        if (!box_1.any) result_zero_lind = true;
+        double Emax=box_1.hi;
+        double Emin=box_1.lo;
         if (Emin > Emax) result_zero = true;
         if (Emin > Emax && result_zero_lind == false) std::cerr << "Wrong energy " << Emax << " " << Emin << "\n";
 
-        double Emax_2 = sqrt(M*M + k_fermi*k_fermi);
-        double pom_2 = std::max(M, Emax_2 - Epi);
-        double Emin_2 = std::max(pom_2, 0.5 * (-(Epi) + kk * sqrt(1. - 4. * M*M / (Epi*Epi - kk*kk))));
+        BubbleBox box_2 = bubble_box(fg, Epi, kk, false); //hole-energy range of the second bubble: union over the isospin channels
+        double Emax_2 = box_2.hi;
+        double Emin_2 = box_2.lo;
 
         Ep2 = Emin_2 + (Emax_2 - Emin_2) * frandom();
         if (Emin_2 > Emax_2) result_zero = true;
@@ -952,7 +963,7 @@ void saveEvents_2p2h_fluxWeighted(std::string flux_file, std::string flux_hist_n
         e->energy_neutrino = Ein;
 
         if (!result_zero && !result_zero_lind)
-            event_2p2h_rho_gaussian(r, Ein, theta_lepton, Ep2, Ep, phi_p, kk, phi_pi, thetapi, Epi, w, qq, rho, 1, Emax_2 - Emin_2, e, nuc, corr_in_medium);
+            event_2p2h_rho_gaussian(r, Ein, theta_lepton, Ep2, Ep, phi_p, kk, phi_pi, thetapi, Epi, w, qq, fg, 1, Emax_2 - Emin_2, e, nuc, corr_in_medium);
         else {
             e->weight_pp = 0;
             e->weight_np = 0;
@@ -962,14 +973,17 @@ void saveEvents_2p2h_fluxWeighted(std::string flux_file, std::string flux_hist_n
             e->weight_anti_np = 0;
         }
 
-        double coeff = w * sin(theta_lepton) * (Emax - Emin) * (qq + 3 * k_fermi) * (Ein - lepton_mass - corr_in_medium) * Pi * 2 * Pi * 2 * Pi * Pi;
+        double coeff = w * sin(theta_lepton) * (Emax - Emin) * (qq+3*fg.kF_max) * (Ein - lepton_mass - corr_in_medium) * Pi * 2 * Pi * 2 * Pi * Pi;
         if (!Global) coeff *= nuc->rmax;
 
         e->weight_pp *= coeff;
         e->weight_np *= coeff;
         e->weight_pn *= coeff;
+        e->weight_anti_nn *= coeff;
+        e->weight_anti_pn *= coeff;
+        e->weight_anti_np *= coeff;
 
-        if ((e->weight_pp + e->weight_np + e->weight_pn) != 0) {
+        if (total_weight(e) != 0) {
             tf->Fill();
             // Progress bar update
             if (i % update_interval == 0) {
@@ -978,11 +992,11 @@ void saveEvents_2p2h_fluxWeighted(std::string flux_file, std::string flux_hist_n
             i++;
         }
 
+        total_xsec += total_weight(e); //before delete e
         delete e;
         result_zero = false;
         result_zero_lind = false;
 
-        total_xsec += (e->weight_pp + e->weight_np + e->weight_pn);
         n_throws++;
 
     }

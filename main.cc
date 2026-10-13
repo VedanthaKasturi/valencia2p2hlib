@@ -245,7 +245,6 @@ void saveEvents_2p2h(std::string suffix){
 	nucleus_str nuc;
 
 	CH_2p2h=CC;
-	FERMI=true;
 	gfg_="LFG";
 
 	std::cout<<"Global Fermi Gas? 0-no 1-yes\n";
@@ -304,7 +303,6 @@ void saveEvents_2p2h(bool useGlobal, int oxygen, bool efixed, double en_low, dou
     nucleus_str nuc;
     std::string gfg_;
 //    CH_2p2h=CC;
-    FERMI=true;
     gfg_="LFG";
 
     Global = useGlobal;
