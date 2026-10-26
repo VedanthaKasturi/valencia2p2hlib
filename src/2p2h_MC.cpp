@@ -13,8 +13,11 @@
 void saveEvents_2p2h(double Ein, std::string name, int nr, nucleus_str* nuc) {
 	
 	event* e = new event;
-	const char * name_c = name.c_str();
-	TFile *ff = new TFile (name_c, "recreate");
+	TFile *ff = TFile::Open(name.c_str(), "recreate");
+	if (!ff || ff->IsZombie()) {
+		std::cerr << "Could not open output file: " << name << "\n";
+		return;
+	}
 	TTree* tf = new TTree ("treeout", "Tree of events");
 	tf->Branch ("e", "event", &e);
 	delete e;
@@ -197,13 +200,14 @@ void saveEvents_2p2h(double Ein, std::string name, int nr, nucleus_str* nuc) {
         e->int_vol_r = nuc->rmax;
 		
 		
-		e->weight_pp *=coeff ;//range of integration
-		e->weight_np *=coeff;
-		e->weight_pn*=coeff;
-		
+		e->weight_pp *= coeff;
+		e->weight_np *= coeff;
+		e->weight_pn *= coeff;
+		e->weight_anti_nn *= coeff;
+		e->weight_anti_pn *= coeff;
+		e->weight_anti_np *= coeff;
 
-        
-        if ((e->weight_pp+e->weight_np+e->weight_pn)!=0) {
+        if ((e->weight_pp+e->weight_np+e->weight_pn+e->weight_anti_nn+e->weight_anti_pn+e->weight_anti_np)!=0) {
             tf->Fill(); //we do not include 0
             i++;
 
@@ -625,8 +629,11 @@ void MCpoint_2p2h_gaussian(double r, double Ein, double theta_lepton, double Ep2
 void saveEvents_2p2h_variedEnergy(double Enu_low, double Enu_high, std::string name, int nr, nucleus_str* nuc){
 
     event* e = new event;
-    const char * name_c = name.c_str();
-    TFile *ff = new TFile (name_c, "recreate");
+    TFile *ff = TFile::Open(name.c_str(), "recreate");
+    if (!ff || ff->IsZombie()) {
+        std::cerr << "Could not open output file: " << name << "\n";
+        return;
+    }
     TTree* tf = new TTree ("treeout", "Tree of events");
     tf->Branch ("e", "event", &e);
     delete e;
@@ -748,6 +755,9 @@ void saveEvents_2p2h_variedEnergy(double Enu_low, double Enu_high, std::string n
         e->phi_nuc = phi_p;
         e->E_nuc2 = Ep2;
         e->energy_neutrino = Ein;
+        e->fermi_momentum = k_fermi;
+        e->lindhard_Value = lindhard;
+        e->isCC = (CH_2p2h == CC);
 
         if (!result_zero && !result_zero_lind) event_2p2h_rho_gaussian(r, Ein, theta_lepton, Ep2, Ep, phi_p, kk, phi_pi, thetapi, Epi, w, qq, rho, 1, Emax_2-Emin_2, e, nuc,corr_in_medium);
         else {
@@ -764,13 +774,14 @@ void saveEvents_2p2h_variedEnergy(double Enu_low, double Enu_high, std::string n
         if (!Global) coeff*=nuc->rmax;
 
 
-        e->weight_pp *=coeff ;//range of integration
-        e->weight_np *=coeff;
-        e->weight_pn*=coeff;
+        e->weight_pp *= coeff;
+        e->weight_np *= coeff;
+        e->weight_pn *= coeff;
+        e->weight_anti_nn *= coeff;
+        e->weight_anti_pn *= coeff;
+        e->weight_anti_np *= coeff;
 
-
-
-        if ((e->weight_pp+e->weight_np+e->weight_pn)!=0) {
+        if ((e->weight_pp+e->weight_np+e->weight_pn+e->weight_anti_nn+e->weight_anti_pn+e->weight_anti_np)!=0) {
             tf->Fill(); //we do not include 0
 
             if (i*10./nr_events == counter) {std::cerr<<"* "; counter++;}
@@ -842,7 +853,11 @@ void saveEvents_2p2h_fluxWeighted(std::string flux_file, std::string flux_hist_n
     flux_hist->Scale(1. / integral);
 
     event* e = new event;
-    TFile *ff = new TFile(name.c_str(), "recreate");
+    TFile *ff = TFile::Open(name.c_str(), "recreate");
+    if (!ff || ff->IsZombie()) {
+        std::cerr << "Could not open output file: " << name << "\n";
+        return;
+    }
     TTree* tf = new TTree("treeout", "Tree of events");
     tf->Branch("e", "event", &e);
     delete e;
@@ -950,6 +965,9 @@ void saveEvents_2p2h_fluxWeighted(std::string flux_file, std::string flux_hist_n
         e->phi_nuc = phi_p;
         e->E_nuc2 = Ep2;
         e->energy_neutrino = Ein;
+        e->fermi_momentum = k_fermi;
+        e->lindhard_Value = lindhard;
+        e->isCC = (CH_2p2h == CC);
 
         if (!result_zero && !result_zero_lind)
             event_2p2h_rho_gaussian(r, Ein, theta_lepton, Ep2, Ep, phi_p, kk, phi_pi, thetapi, Epi, w, qq, rho, 1, Emax_2 - Emin_2, e, nuc, corr_in_medium);
@@ -968,8 +986,11 @@ void saveEvents_2p2h_fluxWeighted(std::string flux_file, std::string flux_hist_n
         e->weight_pp *= coeff;
         e->weight_np *= coeff;
         e->weight_pn *= coeff;
+        e->weight_anti_nn *= coeff;
+        e->weight_anti_pn *= coeff;
+        e->weight_anti_np *= coeff;
 
-        if ((e->weight_pp + e->weight_np + e->weight_pn) != 0) {
+        if ((e->weight_pp + e->weight_np + e->weight_pn + e->weight_anti_nn + e->weight_anti_pn + e->weight_anti_np) != 0) {
             tf->Fill();
             // Progress bar update
             if (i % update_interval == 0) {
