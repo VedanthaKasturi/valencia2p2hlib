@@ -50,3 +50,8 @@ Each nucleus is a `nucleus_str`: a density function (`Rho_HO`, `Rho_F` or `Rho_G
 
 - Energies are in MeV, via the unit constants in `lib/units.h` (e.g. `en *= MeV` after parsing). Densities and radii are in fm units.
 - The `nr` argument scales the event count. Its base multiplier differs between modes, so check the specific MC function.
+
+## Ongoing work
+
+The validation of the asymmetric-nuclei physics (and its cluster re-run with more statistics) lives in `validation/asymmetric-nuclei/`.
+Read `validation/asymmetric-nuclei/HANDOFF.md` before continuing it. It holds the current state, how to rebuild the samples, the reference numbers and how results should be presented.

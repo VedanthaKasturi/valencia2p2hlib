@@ -1,0 +1,6 @@
+# Bulk outputs and builds, regenerated from scripts/ (see HANDOFF.md)
+data/
+runs/
+generator/
+plots/figs/
+harness/

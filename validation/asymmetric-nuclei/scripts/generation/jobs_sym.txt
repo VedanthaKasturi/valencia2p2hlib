@@ -1,0 +1,10 @@
+sym_O18_nu_RD0 4001 nu 0 0 0 0 0 0 0 2 0 0 2000 5
+sym_O18_nubar_RD0 4002 nubar 0 1 0 0 0 0 0 2 0 0 2000 5
+sym_Ar40_nu_RD0 4003 nu 0 0 0 0 0 0 0 4 0 0 2000 5
+sym_Ar40_nubar_RD0 4004 nubar 0 1 0 0 0 0 0 4 0 0 2000 5
+sym_Ca40_nu_RD0 4005 nu 0 0 0 0 0 0 0 5 0 0 2000 5
+sym_Ca40_nubar_RD0 4006 nubar 0 1 0 0 0 0 0 5 0 0 2000 5
+sym_Ca44_nu_RD0 4007 nu 0 0 0 0 0 0 0 6 0 0 2000 5
+sym_Ca44_nubar_RD0 4008 nubar 0 1 0 0 0 0 0 6 0 0 2000 5
+sym_Pb208_nu_RD0 4009 nu 0 0 0 0 0 0 0 9 0 0 2000 5
+sym_Pb208_nubar_RD0 4010 nubar 0 1 0 0 0 0 0 9 0 0 2000 5

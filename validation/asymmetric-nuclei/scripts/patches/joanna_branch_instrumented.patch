@@ -1,0 +1,125 @@
+diff --git a/lib/event.h b/lib/event.h
+index 7072c09..1638399 100644
+--- a/lib/event.h
++++ b/lib/event.h
+@@ -33,6 +33,9 @@ public:
+     double fermi_momentum; // isospin-averaged kF
+     double kF_p;           // proton Fermi momentum at r
+     double kF_n;           // neutron Fermi momentum at r
++    double w_rho[3]={0,0,0}; // TEST: rho-transverse piece of the slot weights
++    double w_pi[3]={0,0,0};  // TEST: pion-longitudinal piece
++    double w_int[3]={0,0,0}; // TEST: interference piece
+     double lindhard_Value;
+     double transverse_response;
+     double mixed_response;
+diff --git a/main.cc b/main.cc
+index d57925b..07d7721 100644
+--- a/main.cc
++++ b/main.cc
+@@ -1,3 +1,4 @@
++#include <cstdlib>
+ #include <iostream>
+ #include <fstream>
+ #include <cmath>
+@@ -55,6 +56,7 @@ static nucleus_str select_nucleus(int code, bool useGlobal) {
+     nucleus_str sel = *n;
+     // Neutrinos are dominated by pp final states, antineutrinos by nn: use S_2p or S_2n as the one Q_2p2h
+     if (CH_2p2h == CCanti) sel.Q_2p2h = sel.Q_2p2h_anti;
++    if (const char* qo=getenv("Q2P2H_OVERRIDE")) sel.Q_2p2h = atof(qo);
+     std::cout << "Nucleus: " << sel.name << "  A=" << NR_PART
+               << "  Q_2p2h=" << sel.Q_2p2h << " MeV  rmax=" << sel.rmax << " fm\n";
+     return sel;
+diff --git a/src/2p2h_MC.cpp b/src/2p2h_MC.cpp
+index 3695bdd..8846522 100644
+--- a/src/2p2h_MC.cpp
++++ b/src/2p2h_MC.cpp
+@@ -210,7 +210,7 @@ void saveEvents_2p2h(double Ein, std::string name, int nr, nucleus_str* nuc) {
+ 		e->weight_pn*=coeff;
+ 		e->weight_anti_nn *= coeff;
+ 		e->weight_anti_pn *= coeff;
+-		e->weight_anti_np *= coeff;
++		e->weight_anti_np *= coeff; for(int k=0;k<3;k++){e->w_rho[k]*=coeff; e->w_pi[k]*=coeff; e->w_int[k]*=coeff;}
+ 		
+ 
+         
+@@ -332,6 +332,12 @@ void event_2p2h_rho_gaussian(double r, double Ein, double theta_lepton, double E
+      */
+     
+     
++	std::complex<double> P00[3][3],P11[3][3],P12[3][3],P03[3][3],P33[3][3]; //TEST: [piece][slot]
++	for (int i=0; i<3; i++) {
++		P00[0][i]=A00[i];P11[0][i]=A11[i];P12[0][i]=A12[i];P03[0][i]=A03[i];P33[0][i]=A33[i];
++		P00[1][i]=B00[i];P11[1][i]=B11[i];P12[1][i]=B12[i];P03[1][i]=B03[i];P33[1][i]=B33[i];
++		P00[2][i]=C00[i];P11[2][i]=C11[i];P12[2][i]=C12[i];P03[2][i]=C03[i];P33[2][i]=C33[i];
++	}
+ 	for (int i=0; i<3; i++) {
+ 		A00[i]+=B00[i]+C00[i];
+ 		A11[i]+=B11[i]+C11[i];
+@@ -387,6 +393,18 @@ void event_2p2h_rho_gaussian(double r, double Ein, double theta_lepton, double E
+ 		if (!Global) factor_rho = 2*r*r*pow(fermi,3);
+ 		
+ 		
++        for (int pc=0; pc<3; pc++) { //TEST: same contraction for each piece of the hadron tensor
++            double pW1=P11[pc][i].real()/2.;
++            double pW2=0.5*(P00[pc][i].real()+P11[pc][i].real()+ w*w/qq/qq*(P33[pc][i].real()-P11[pc][i].real())-2*w/qq*P03[pc][i].real());
++            double pW3=P12[pc][i].imag()/qq;
++            double pW4=(P33[pc][i].real()-P11[pc][i].real())/2./qq/qq;
++            double pW5=(P03[pc][i].real()-w/qq*(P33[pc][i].real()-P11[pc][i].real()))/qq;
++            double sg = (CH_2p2h==CCanti) ? -1. : 1.;
++            double ps1 = 2*pW1*sint2 + pW2*cost2 - sg*pW3*(Ein+eout)*sint2;
++            double ps2 = pW1*cos(theta_lepton)-pW2/2.*cos(theta_lepton) + sg*pW3/2.*(eout+kout-(Ein+eout)*cos(theta_lepton)) + pW4/2.*(lepton_mass*lepton_mass*cos(theta_lepton)+2*eout*(eout+kout)*(1-cos(theta_lepton)*cos(theta_lepton))) - pW5*(eout+kout)/2.;
++            double pw = coef*(ps1+as*ps2)*factor_rho;
++            if (pc==0) e->w_rho[i]=pw; else if (pc==1) e->w_pi[i]=pw; else e->w_int[i]=pw;
++        }
+         if (CH_2p2h == CCanti) {
+             
+             switch(i){
+@@ -584,6 +602,12 @@ void MCpoint_2p2h_gaussian(double r, double Ein, double theta_lepton, double Ep2
+ 		std::cerr<<"ERROR "<<Ep<<" phi="<<phi_p<<" kpi="<<kk<<" phipi="<<phi_pi<<" thpi="<<thetapi<<" Epi="<<Epi<<" q="<<qq<<" w="<<w<<" rho="<<rho<<" "<<A00[0]<<" "<<A11[0]<<" "<<A12[0]<<" "<<A03[0]<<" "<<A33[0]<<"\n";
+ 	}
+ 	
++	std::complex<double> P00[3][3],P11[3][3],P12[3][3],P03[3][3],P33[3][3]; //TEST: [piece][slot]
++	for (int i=0; i<3; i++) {
++		P00[0][i]=A00[i];P11[0][i]=A11[i];P12[0][i]=A12[i];P03[0][i]=A03[i];P33[0][i]=A33[i];
++		P00[1][i]=B00[i];P11[1][i]=B11[i];P12[1][i]=B12[i];P03[1][i]=B03[i];P33[1][i]=B33[i];
++		P00[2][i]=C00[i];P11[2][i]=C11[i];P12[2][i]=C12[i];P03[2][i]=C03[i];P33[2][i]=C33[i];
++	}
+ 	for (int i=0; i<3; i++) {
+ 		A00[i]+=B00[i]+C00[i];
+ 		A11[i]+=B11[i]+C11[i];
+@@ -782,7 +806,7 @@ void saveEvents_2p2h_variedEnergy(double Enu_low, double Enu_high, std::string n
+         e->weight_pn*=coeff;
+         e->weight_anti_nn *= coeff;
+         e->weight_anti_pn *= coeff;
+-        e->weight_anti_np *= coeff;
++        e->weight_anti_np *= coeff; for(int k=0;k<3;k++){e->w_rho[k]*=coeff; e->w_pi[k]*=coeff; e->w_int[k]*=coeff;}
+ 
+ 
+ 
+@@ -987,7 +1011,7 @@ void saveEvents_2p2h_fluxWeighted(std::string flux_file, std::string flux_hist_n
+         e->weight_pn *= coeff;
+         e->weight_anti_nn *= coeff;
+         e->weight_anti_pn *= coeff;
+-        e->weight_anti_np *= coeff;
++        e->weight_anti_np *= coeff; for(int k=0;k<3;k++){e->w_rho[k]*=coeff; e->w_pi[k]*=coeff; e->w_int[k]*=coeff;}
+ 
+         if (total_weight(e) != 0) {
+             tf->Fill();
+diff --git a/src/generatormt.cpp b/src/generatormt.cpp
+index 76dbb7f..281b3df 100644
+--- a/src/generatormt.cpp
++++ b/src/generatormt.cpp
+@@ -1,3 +1,4 @@
++#include <cstdlib>
+ /*
+    A C-program for MT19937, with initialization improved 2002/1/26.
+    Coded by Takuji Nishimura and Makoto Matsumoto.
+@@ -199,7 +200,7 @@ void frandom_init(int option)
+ {
+   switch(option)
+   {
+-    case 0: init_genrand(time(NULL));break;
++    case 0: { const char* s=getenv("MC_SEED"); init_genrand(s? strtoul(s,0,10) : time(NULL)); } break;
+     case 1: genrand_read_state();break;
+     default: init_genrand(option);break;
+   }

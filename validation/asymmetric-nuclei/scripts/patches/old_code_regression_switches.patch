@@ -1,0 +1,76 @@
+diff --git a/main.cc b/main.cc
+index 4d78db0..f43ed3a 100644
+--- a/main.cc
++++ b/main.cc
+@@ -1,3 +1,4 @@
++#include <cstdlib>
+ #include <iostream>
+ #include <fstream>
+ #include <cmath>
+@@ -54,7 +55,10 @@ static nucleus_str select_nucleus(int code, bool useGlobal) {
+     NR_PART = n->A + n->Z; // the A/Z fields hold (protons, neutrons), so their sum is the mass number
+     std::cout << "Nucleus: " << n->name << "  A=" << NR_PART
+               << "  Q_2p2h=" << n->Q_2p2h << " MeV  rmax=" << n->rmax << " fm\n";
+-    return *n;
++    nucleus_str sel=*n;
++    if (const char* qo=getenv("Q2P2H_OVERRIDE")) sel.Q_2p2h = atof(qo);
++    std::cout << "Q used: " << sel.Q_2p2h << "\n";
++    return sel;
+ }
+ 
+ 
+@@ -242,7 +246,7 @@ void saveEvents_2p2h(std::string suffix){
+ 	nucleus_str nuc;
+ 
+ 	CH_2p2h=CC;
+-	FERMI=true;
++	FERMI=(getenv("OLD_FERMI_OFF")==0);
+ 	gfg_="LFG";
+ 
+ 	std::cout<<"Global Fermi Gas? 0-no 1-yes\n";
+@@ -301,7 +305,7 @@ void saveEvents_2p2h(bool useGlobal, int oxygen, bool efixed, double en_low, dou
+     nucleus_str nuc;
+     std::string gfg_;
+ //    CH_2p2h=CC;
+-    FERMI=true;
++    FERMI=(getenv("OLD_FERMI_OFF")==0);
+     gfg_="LFG";
+ 
+     Global = useGlobal;
+diff --git a/src/generatormt.cpp b/src/generatormt.cpp
+index 76dbb7f..281b3df 100644
+--- a/src/generatormt.cpp
++++ b/src/generatormt.cpp
+@@ -1,3 +1,4 @@
++#include <cstdlib>
+ /*
+    A C-program for MT19937, with initialization improved 2002/1/26.
+    Coded by Takuji Nishimura and Makoto Matsumoto.
+@@ -199,7 +200,7 @@ void frandom_init(int option)
+ {
+   switch(option)
+   {
+-    case 0: init_genrand(time(NULL));break;
++    case 0: { const char* s=getenv("MC_SEED"); init_genrand(s? strtoul(s,0,10) : time(NULL)); } break;
+     case 1: genrand_read_state();break;
+     default: init_genrand(option);break;
+   }
+diff --git a/src/hadron_tensor_2p2h_2b.cpp b/src/hadron_tensor_2p2h_2b.cpp
+index 4f83988..b4328d2 100644
+--- a/src/hadron_tensor_2p2h_2b.cpp
++++ b/src/hadron_tensor_2p2h_2b.cpp
+@@ -1,3 +1,4 @@
++#include <cstdlib>
+ #include "hadron_tensor_2p2h_2b.h"
+ 
+ 
+@@ -239,7 +240,8 @@ void hadron_2p2h_part2_Epi_thetapi_phipi_kpi_E1_E2_isospin(double Ep2, double Ep
+ 	double Emax2=sqrt(M*M+k_fermi*k_fermi);
+ 	
+ 
+-	double Emin2=std::max(pom, 0.5*(-(q(0)-kPi(0))+q_minus_k*sqrt(1.-4.*M*M/((q(0)-kPi(0))*(q(0)-kPi(0))-q_minus_k*q_minus_k))));
++	double pom2 = getenv("OLD_INTFIX") ? std::max(M,Emax2-(q(0)-kPi(0))) : pom;
++	double Emin2=std::max(pom2, 0.5*(-(q(0)-kPi(0))+q_minus_k*sqrt(1.-4.*M*M/((q(0)-kPi(0))*(q(0)-kPi(0))-q_minus_k*q_minus_k))));
+ 	
+ 	double coeff =-pow(f_pi*f_pi_kpi_q,2)*lindhard*lindhard_kpi
+ 	
